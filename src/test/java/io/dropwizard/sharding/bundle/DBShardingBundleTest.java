@@ -20,6 +20,12 @@ package io.dropwizard.sharding.bundle;
 import com.codahale.metrics.health.HealthCheckRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
+import io.dropwizard.Configuration;
+import io.dropwizard.jersey.DropwizardResourceConfig;
+import io.dropwizard.jersey.setup.JerseyEnvironment;
+import io.dropwizard.lifecycle.setup.LifecycleEnvironment;
+import io.dropwizard.setup.Bootstrap;
+import io.dropwizard.setup.Environment;
 import io.dropwizard.sharding.DBShardingBundle;
 import io.dropwizard.sharding.config.ShardedHibernateFactory;
 import io.dropwizard.sharding.dao.RelationalDao;
@@ -27,14 +33,6 @@ import io.dropwizard.sharding.dao.WrapperDao;
 import io.dropwizard.sharding.dao.testdata.OrderDao;
 import io.dropwizard.sharding.dao.testdata.entities.Order;
 import io.dropwizard.sharding.dao.testdata.entities.OrderItem;
-import io.dropwizard.Configuration;
-import io.dropwizard.db.DataSourceFactory;
-import io.dropwizard.jersey.DropwizardResourceConfig;
-import io.dropwizard.jersey.setup.JerseyEnvironment;
-import io.dropwizard.lifecycle.setup.LifecycleEnvironment;
-import io.dropwizard.setup.Bootstrap;
-import io.dropwizard.setup.Environment;
-import lombok.val;
 import org.hibernate.criterion.DetachedCriteria;
 import org.hibernate.criterion.Restrictions;
 import org.junit.Before;
@@ -46,7 +44,6 @@ import java.util.Map;
 import java.util.Optional;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -75,23 +72,19 @@ public class DBShardingBundleTest {
         }
     };
 
-    private DataSourceFactory createConfig(String dbName) {
-        Map<String,String> properties = Maps.newHashMap();
-        properties.put("hibernate.dialect", "org.hibernate.dialect.H2Dialect");
-        properties.put("hibernate.hbm2ddl.auto", "create");
-
-        DataSourceFactory shard = new DataSourceFactory();
-        shard.setDriverClass("org.h2.Driver");
-        shard.setUrl("jdbc:h2:mem:" + dbName);
-        shard.setValidationQuery("select 1");
-        shard.setProperties(properties);
-
-        return shard;
+    private String createConfig(String dbName) {
+        return "jdbc:h2:mem:" + dbName;
     }
 
     @Before
     public void setup() throws Exception {
-        testConfig.shards.setShards(ImmutableList.of(createConfig("1"), createConfig("2")));
+        Map<String,String> properties = Maps.newHashMap();
+        properties.put("hibernate.dialect", "org.hibernate.dialect.H2Dialect");
+        properties.put("hibernate.hbm2ddl.auto", "create");
+        testConfig.shards.setDriverClass("org.h2.Driver");
+        testConfig.shards.setValidationQuery("select 1");
+        testConfig.shards.setProperties(properties);
+        testConfig.shards.setUrls(ImmutableList.of(createConfig("1"), createConfig("2")));
 
         when(jerseyEnvironment.getResourceConfig()).thenReturn(new DropwizardResourceConfig());
         when(environment.jersey()).thenReturn(jerseyEnvironment);

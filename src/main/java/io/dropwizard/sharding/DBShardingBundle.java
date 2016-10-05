@@ -67,7 +67,7 @@ public abstract class DBShardingBundle<T extends Configuration> implements Confi
 
                 @Override
                 public PooledDataSourceFactory getDataSourceFactory(T t) {
-                    return getConfig(t).getShards().get(finalI);
+                    return getConfig(t).shard(finalI);
                 }
             });
         }
