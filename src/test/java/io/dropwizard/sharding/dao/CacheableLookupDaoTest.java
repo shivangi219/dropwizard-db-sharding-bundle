@@ -19,12 +19,15 @@ package io.dropwizard.sharding.dao;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
+import io.dropwizard.sharding.caching.LookupCache;
+import io.dropwizard.sharding.caching.RelationalCache;
 import io.dropwizard.sharding.dao.testdata.entities.Audit;
 import io.dropwizard.sharding.dao.testdata.entities.Phone;
 import io.dropwizard.sharding.dao.testdata.entities.TestEntity;
 import io.dropwizard.sharding.dao.testdata.entities.Transaction;
 import io.dropwizard.sharding.sharding.ShardManager;
 import io.dropwizard.sharding.sharding.impl.ConsistentHashBucketIdExtractor;
+import org.apache.commons.lang3.StringUtils;
 import org.hibernate.SessionFactory;
 import org.hibernate.boot.registry.StandardServiceRegistry;
 import org.hibernate.boot.registry.StandardServiceRegistryBuilder;
@@ -35,18 +38,20 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static org.junit.Assert.*;
 
-public class LookupDaoTest {
+public class CacheableLookupDaoTest {
 
     private List<SessionFactory> sessionFactories = Lists.newArrayList();
-    private LookupDao<TestEntity> lookupDao;
-    private LookupDao<Phone> phoneDao;
-    private RelationalDao<Transaction> transactionDao;
-    private RelationalDao<Audit> auditDao;
+    private CacheableLookupDao<TestEntity> lookupDao;
+    private CacheableLookupDao<Phone> phoneDao;
+    private CacheableRelationalDao<Transaction> transactionDao;
+    private CacheableRelationalDao<Audit> auditDao;
 
     private SessionFactory buildSessionFactory(String dbName) {
         Configuration configuration = new Configuration();
@@ -68,16 +73,129 @@ public class LookupDaoTest {
         return configuration.buildSessionFactory(serviceRegistry);
     }
 
+
     @Before
     public void before() {
         for (int i = 0; i < 2; i++) {
             sessionFactories.add(buildSessionFactory(String.format("db_%d", i)));
         }
         final ShardManager shardManager = new ShardManager(sessionFactories.size());
-        lookupDao = new LookupDao<>(sessionFactories, TestEntity.class, shardManager, new ConsistentHashBucketIdExtractor<>());
-        phoneDao = new LookupDao<>(sessionFactories, Phone.class, shardManager, new ConsistentHashBucketIdExtractor<>());
-        transactionDao = new RelationalDao<>(sessionFactories, Transaction.class, shardManager, new ConsistentHashBucketIdExtractor<>());
-        auditDao = new RelationalDao<>(sessionFactories, Audit.class, shardManager, new ConsistentHashBucketIdExtractor<>());
+        lookupDao = new CacheableLookupDao<>(sessionFactories, TestEntity.class, shardManager, new ConsistentHashBucketIdExtractor<>(), new LookupCache<TestEntity>() {
+
+            private Map<String, TestEntity> cache = new HashMap<>();
+
+            @Override
+            public void put(String key, TestEntity entity) {
+                cache.put(key, entity);
+            }
+
+            @Override
+            public boolean exists(String key) {
+                return cache.containsKey(key);
+            }
+
+            @Override
+            public TestEntity get(String key) {
+                return cache.get(key);
+            }
+        });
+        phoneDao = new CacheableLookupDao<>(sessionFactories, Phone.class, shardManager, new ConsistentHashBucketIdExtractor<>(), new LookupCache<Phone>() {
+
+            private Map<String, Phone> cache = new HashMap<>();
+
+            @Override
+            public void put(String key, Phone entity) {
+                cache.put(key, entity);
+            }
+
+            @Override
+            public boolean exists(String key) {
+                return cache.containsKey(key);
+            }
+
+            @Override
+            public Phone get(String key) {
+                return cache.get(key);
+            }
+        });
+        transactionDao = new CacheableRelationalDao<>(sessionFactories, Transaction.class, shardManager, new ConsistentHashBucketIdExtractor<>(), new RelationalCache<Transaction>() {
+
+            private Map<String, Object> cache = new HashMap<>();
+
+            @Override
+            public void put(String parentKey, Object key, Transaction entity) {
+                cache.put(StringUtils.join(parentKey, key, ':'), entity);
+            }
+
+            @Override
+            public void put(String parentKey, List<Transaction> entities) {
+                cache.put(parentKey, entities);
+            }
+
+            @Override
+            public void put(String parentKey, int first, int numResults, List<Transaction> entities) {
+                cache.put(StringUtils.join(parentKey, first, numResults, ':'), entities);
+            }
+
+            @Override
+            public boolean exists(String parentKey, Object key) {
+                return cache.containsKey(StringUtils.join(parentKey, key, ':'));
+            }
+
+            @Override
+            public Transaction get(String parentKey, Object key) {
+                return (Transaction) cache.get(StringUtils.join(parentKey, key, ':'));
+            }
+
+            @Override
+            public List<Transaction> select(String parentKey) {
+                return (List<Transaction>) cache.get(parentKey);
+            }
+
+            @Override
+            public List<Transaction> select(String parentKey, int first, int numResults) {
+                return (List<Transaction>) cache.get(StringUtils.join(parentKey, first, numResults, ':'));
+            }
+        });
+        auditDao = new CacheableRelationalDao<>(sessionFactories, Audit.class, shardManager, new ConsistentHashBucketIdExtractor<>(), new RelationalCache<Audit>() {
+
+            private Map<String, Object> cache = new HashMap<>();
+
+            @Override
+            public void put(String parentKey, Object key, Audit entity) {
+                cache.put(StringUtils.join(parentKey, key, ':'), entity);
+            }
+
+            @Override
+            public void put(String parentKey, List<Audit> entities) {
+                cache.put(parentKey, entities);
+            }
+
+            @Override
+            public void put(String parentKey, int first, int numResults, List<Audit> entities) {
+                cache.put(StringUtils.join(parentKey, first, numResults, ':'), entities);
+            }
+
+            @Override
+            public boolean exists(String parentKey, Object key) {
+                return cache.containsKey(StringUtils.join(parentKey, key, ':'));
+            }
+
+            @Override
+            public Audit get(String parentKey, Object key) {
+                return (Audit) cache.get(StringUtils.join(parentKey, key, ':'));
+            }
+
+            @Override
+            public List<Audit> select(String parentKey) {
+                return (List<Audit>) cache.get(parentKey);
+            }
+
+            @Override
+            public List<Audit> select(String parentKey, int first, int numResults) {
+                return (List<Audit>) cache.get(StringUtils.join(parentKey, first, numResults, ':'));
+            }
+        });
     }
 
     @After
@@ -144,35 +262,6 @@ public class LookupDaoTest {
         assertFalse(results.isEmpty());
         assertEquals("Some Text", results.get(0).getText());
     }
-
-    @Test
-    public void testListGetQuery() throws Exception {
-        List<String> lookupKeys = Lists.newArrayList();
-        lookupKeys.add("testId1");
-        List<TestEntity> results = lookupDao.get(lookupKeys);
-        assertTrue(results.isEmpty());
-
-        TestEntity testEntity1 = TestEntity.builder()
-                .externalId("testId1")
-                .text("Some Text 1")
-                .build();
-        lookupDao.save(testEntity1);
-        results = lookupDao.get(lookupKeys);
-        assertFalse(results.isEmpty());
-        assertEquals(1,results.size());
-        assertEquals("Some Text 1", results.get(0).getText());
-
-        TestEntity testEntity2 = TestEntity.builder()
-                .externalId("testId2")
-                .text("Some Text 2")
-                .build();
-        lookupDao.save(testEntity2);
-        lookupKeys.add("testId2");
-        results = lookupDao.get(lookupKeys);
-        assertFalse(results.isEmpty());
-        assertEquals(2,results.size());
-    }
-
 
     @Test
     public void testSaveInParentBucket() throws Exception {

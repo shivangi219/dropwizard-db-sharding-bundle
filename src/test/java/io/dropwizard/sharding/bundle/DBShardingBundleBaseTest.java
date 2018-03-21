@@ -21,6 +21,7 @@ import com.codahale.metrics.health.HealthCheckRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
 import io.dropwizard.Configuration;
+import io.dropwizard.db.DataSourceFactory;
 import io.dropwizard.jersey.DropwizardResourceConfig;
 import io.dropwizard.jersey.setup.JerseyEnvironment;
 import io.dropwizard.lifecycle.setup.LifecycleEnvironment;
@@ -33,6 +34,7 @@ import io.dropwizard.sharding.dao.WrapperDao;
 import io.dropwizard.sharding.dao.testdata.OrderDao;
 import io.dropwizard.sharding.dao.testdata.entities.Order;
 import io.dropwizard.sharding.dao.testdata.entities.OrderItem;
+import lombok.Getter;
 import org.hibernate.criterion.DetachedCriteria;
 import org.hibernate.criterion.Restrictions;
 import org.junit.Before;
@@ -52,12 +54,13 @@ import static org.mockito.Mockito.when;
  * Top level test. Saves an order using custom dao to a shard belonging to a particular customer.
  * Core systems are not mocked. Uses H2 for testing.
  */
-public class DBShardingBundleTest {
-    private static class TestConfig extends Configuration {
+public abstract class DBShardingBundleBaseTest {
+    static class TestConfig extends Configuration {
+        @Getter
         private ShardedHibernateFactory shards = new ShardedHibernateFactory();
     }
 
-    private final TestConfig testConfig = new TestConfig();
+    final TestConfig testConfig = new TestConfig();
     private final HealthCheckRegistry healthChecks = mock(HealthCheckRegistry.class);
     private final JerseyEnvironment jerseyEnvironment = mock(JerseyEnvironment.class);
     private final LifecycleEnvironment lifecycleEnvironment = mock(LifecycleEnvironment.class);
@@ -65,12 +68,7 @@ public class DBShardingBundleTest {
     private final Bootstrap<?> bootstrap = mock(Bootstrap.class);
 
 
-    private DBShardingBundle<TestConfig> bundle = new DBShardingBundle<TestConfig>(Order.class, OrderItem.class) {
-        @Override
-        protected ShardedHibernateFactory getConfig(TestConfig config) {
-            return testConfig.shards;
-        }
-    };
+    protected abstract DBShardingBundle<TestConfig> getBundle();
 
     private String createConfig(String dbName) {
         return "jdbc:h2:mem:" + dbName;
@@ -91,6 +89,7 @@ public class DBShardingBundleTest {
         when(environment.lifecycle()).thenReturn(lifecycleEnvironment);
         when(environment.healthChecks()).thenReturn(healthChecks);
 
+        DBShardingBundle<TestConfig> bundle = getBundle();
         bundle.initialize(bootstrap);
         bundle.initBundles(bootstrap);
         bundle.runBundles(testConfig, environment);
@@ -99,6 +98,12 @@ public class DBShardingBundleTest {
 
     @Test
     public void testBundle() throws Exception {
+        DBShardingBundle<TestConfig> bundle = getBundle();
+        bundle.initialize(bootstrap);
+        bundle.initBundles(bootstrap);
+        bundle.runBundles(testConfig, environment);
+        bundle.run(testConfig, environment);
+
         WrapperDao<Order, OrderDao> dao = DBShardingBundle.createWrapperDao(bundle, OrderDao.class);
 
         RelationalDao<Order> rDao = DBShardingBundle.createRelatedObjectDao(bundle, Order.class);
@@ -158,7 +163,7 @@ public class DBShardingBundleTest {
         Map<String, Object> blah = Maps.newHashMap();
 
         rDao.get("customer1", generatedId, foundOrder -> {
-            if(null == foundOrder) {
+            if (null == foundOrder) {
                 return Collections.emptyList();
             }
             List<OrderItem> itemList = foundOrder.getItems();
@@ -169,24 +174,24 @@ public class DBShardingBundleTest {
         assertEquals(2, blah.get("count"));
 
         List<OrderItem> orderItems = orderItemDao.select("customer1",
-                                                        DetachedCriteria.forClass(OrderItem.class)
-                                                            .createAlias("order", "o")
-                                                            .add(Restrictions.eq("o.orderId", "OD00001")));
+                                                         DetachedCriteria.forClass(OrderItem.class)
+                                                                 .createAlias("order", "o")
+                                                                 .add(Restrictions.eq("o.orderId", "OD00001")));
         assertEquals(2, orderItems.size());
         orderItemDao.update("customer1",
-                DetachedCriteria.forClass(OrderItem.class)
-                        .createAlias("order", "o")
-                        .add(Restrictions.eq("o.orderId", "OD00001")),
-                item -> OrderItem.builder()
-                        .id(item.getId())
-                        .order(item.getOrder())
-                        .name("Item AA")
-                        .build());
+                            DetachedCriteria.forClass(OrderItem.class)
+                                    .createAlias("order", "o")
+                                    .add(Restrictions.eq("o.orderId", "OD00001")),
+                            item -> OrderItem.builder()
+                                    .id(item.getId())
+                                    .order(item.getOrder())
+                                    .name("Item AA")
+                                    .build());
 
         orderItems = orderItemDao.select("customer1",
-                DetachedCriteria.forClass(OrderItem.class)
-                        .createAlias("order", "o")
-                        .add(Restrictions.eq("o.orderId", "OD00001")));
+                                         DetachedCriteria.forClass(OrderItem.class)
+                                                 .createAlias("order", "o")
+                                                 .add(Restrictions.eq("o.orderId", "OD00001")));
         assertEquals(2, orderItems.size());
         assertEquals("Item AA", orderItems.get(0).getName());
     }

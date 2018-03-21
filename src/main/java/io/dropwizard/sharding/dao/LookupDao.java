@@ -19,13 +19,13 @@ package io.dropwizard.sharding.dao;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
+import io.dropwizard.hibernate.AbstractDAO;
 import io.dropwizard.sharding.sharding.BucketIdExtractor;
 import io.dropwizard.sharding.sharding.LookupKey;
 import io.dropwizard.sharding.sharding.ShardManager;
 import io.dropwizard.sharding.utils.ShardCalculator;
 import io.dropwizard.sharding.utils.TransactionHandler;
 import io.dropwizard.sharding.utils.Transactions;
-import io.dropwizard.hibernate.AbstractDAO;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.ClassUtils;
@@ -38,6 +38,7 @@ import org.hibernate.criterion.Restrictions;
 import java.lang.reflect.Field;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -122,7 +123,7 @@ public class LookupDao<T> {
     private final Field keyField;
 
     /**
-     * Creates a new sharded DAO. The number of managed shards and buckeing is controlled by the {@link ShardManager}.
+     * Creates a new sharded DAO. The number of managed shards and bucketing is controlled by the {@link ShardManager}.
      *
      * @param sessionFactories a session provider for each shard
      */
@@ -246,10 +247,22 @@ public class LookupDao<T> {
         }
     }
 
-    public LockedContext<T> lockedExecutor(String id) {
+    public LockedContext<T> lockAndGetExecutor(String id) {
         int shardId = ShardCalculator.shardId(shardManager, bucketIdExtractor, id);
         LookupDaoPriv dao = daos.get(shardId);
         return new LockedContext<>(shardId, dao.sessionFactory, dao::getLockedForWrite, id);
+    }
+
+    public LockedContext<T> saveAndGetExecutor(T entity) {
+        String id;
+        try {
+            id = keyField.get(entity).toString();
+        } catch (IllegalAccessException e) {
+            throw new RuntimeException(e);
+        }
+        int shardId = ShardCalculator.shardId(shardManager, bucketIdExtractor, id);
+        LookupDaoPriv dao = daos.get(shardId);
+        return new LockedContext<>(shardId, dao.sessionFactory, dao::save, entity);
     }
 
     /**
@@ -268,6 +281,33 @@ public class LookupDao<T> {
         }).flatMap(Collection::stream).collect(Collectors.toList());
     }
 
+    /**
+     * Queries across various shards and returns the results.
+     * <b>Note:</b> This method runs the query serially and is efficient over scatterGather and serial get of all key
+     * @param keys The list of lookup keys
+     * @return List of elements or empty if none match
+     */
+    public List<T> get(List<String> keys) {
+        Map<Integer,List<String>> lookupKeysGroupByShards = keys.stream()
+                .collect(
+                        Collectors.groupingBy(key-> ShardCalculator.shardId(shardManager, bucketIdExtractor, key),
+                                Collectors.toList()));
+
+        return lookupKeysGroupByShards.keySet().stream().map(shardId -> {
+            try {
+                DetachedCriteria criteria = DetachedCriteria.forClass(entityClass)
+                        .add(Restrictions.in(keyField.getName(),lookupKeysGroupByShards.get(shardId)));
+                return Transactions.execute(daos.get(shardId).sessionFactory, true, daos.get(shardId)::select, criteria);
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        }).flatMap(Collection::stream).collect(Collectors.toList());
+    }
+
+
+    protected Field getKeyField() {
+        return this.keyField;
+    }
 
     /**
      * A context for a shard
@@ -278,17 +318,32 @@ public class LookupDao<T> {
         public interface Mutator<T> {
             void mutator(T parent);
         }
+
+        enum Mode {READ, INSERT}
+
         private final int shardId;
         private final SessionFactory sessionFactory;
         private Function<String, T> function;
-        private final String key;
+        private Function<T, T> saver;
+        private T entity;
+        private String key;
         private List<Function<T, Void>> operations = Lists.newArrayList();
+        private final Mode mode;
 
         public LockedContext(int shardId, SessionFactory sessionFactory, Function<String, T> getter, String key) {
             this.shardId = shardId;
             this.sessionFactory = sessionFactory;
             this.function = getter;
             this.key = key;
+            this.mode = Mode.READ;
+        }
+
+        public LockedContext(int shardId, SessionFactory sessionFactory, Function<T, T> saver, T entity) {
+            this.shardId = shardId;
+            this.sessionFactory = sessionFactory;
+            this.saver = saver;
+            this.entity = entity;
+            this.mode = Mode.INSERT;
         }
 
         public LockedContext<T> mutate(Mutator<T> mutator) {
@@ -315,6 +370,43 @@ public class LookupDao<T> {
             });
         }
 
+        public<U> LockedContext<T> saveAll(RelationalDao<U> relationalDao, Function<T, List<U>> entityGenerator) {
+            return apply(parent-> {
+                try {
+                    List<U> entities = entityGenerator.apply(parent);
+                    for(U entity : entities) {
+                        relationalDao.save(this, entity);
+                    }
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
+                return null;
+            });
+        }
+
+        public<U> LockedContext<T> save(RelationalDao<U> relationalDao, U entity, Function<U, U> handler) {
+            return apply(parent-> {
+                try {
+                    relationalDao.save(this, entity, handler);
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
+                return null;
+            });
+        }
+
+
+        public<U> LockedContext<T> update(RelationalDao<U> relationalDao, Object id, Function<U, U> handler) {
+            return apply(parent-> {
+                try {
+                    relationalDao.update(this, id, handler);
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
+                return null;
+            });
+        }
+
         public LockedContext<T> filter(Predicate<T> predicate) {
             return filter(predicate, new IllegalArgumentException("Predicate check failed"));
         }
@@ -329,18 +421,39 @@ public class LookupDao<T> {
             });
         }
 
-        public void execute() {
+        public T execute() {
             TransactionHandler transactionHandler = new TransactionHandler(sessionFactory, false);
             transactionHandler.beforeStart();
             try {
-                T result = function.apply(key);
-                operations.stream()
+                T result = generateEntity();
+                operations
                         .forEach(operation -> operation.apply(result));
-                transactionHandler.afterEnd();
+                return result;
             } catch (Exception e) {
                 transactionHandler.onError();
                 throw e;
+            } finally {
+                transactionHandler.afterEnd();
             }
+        }
+
+        private T generateEntity() {
+            T result = null;
+            switch (mode) {
+                case READ:
+                    result = function.apply(key);
+                    if (result == null) {
+                        throw new RuntimeException("Entity doesn't exist for key: " + key);
+                    }
+                    break;
+                case INSERT:
+                    result = saver.apply(entity);
+                    break;
+                default:
+                    break;
+
+            }
+            return result;
         }
     }
 }

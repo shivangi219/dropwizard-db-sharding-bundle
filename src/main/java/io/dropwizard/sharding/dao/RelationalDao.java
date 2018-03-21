@@ -72,6 +72,13 @@ public class RelationalDao<T> {
             return persist(entity);
         }
 
+        boolean saveAll(Collection<T> entities) {
+            for (T entity : entities) {
+                persist(entity);
+            }
+            return true;
+        }
+
         void update(T oldEntity, T entity) {
             currentSession().evict(oldEntity); //Detach .. otherwise update is a no-op
             currentSession().update(entity);
@@ -137,32 +144,52 @@ public class RelationalDao<T> {
         return Optional.ofNullable(get(parentKey, key, t-> t));
     }
 
-    public<U> U get(String parentKey, Object key, Function<T, U> function) throws Exception {
+    public<U> U get(String parentKey, Object key, Function<T, U> function) {
         int shardId = ShardCalculator.shardId(shardManager, bucketIdExtractor, parentKey);
         RelationalDaoPriv dao = daos.get(shardId);
-        return Transactions.<T, Object, U>execute(dao.sessionFactory, true, dao::get, key, function);
+        return Transactions.execute(dao.sessionFactory, true, dao::get, key, function);
     }
 
     public Optional<T> save(String parentKey, T entity) throws Exception {
         return Optional.ofNullable(save(parentKey, entity, t -> t));
     }
 
-    public <U> U save(String parentKey, T entity, Function<T, U> handler) throws Exception {
+    public <U> U save(String parentKey, T entity, Function<T, U> handler) {
         int shardId = ShardCalculator.shardId(shardManager, bucketIdExtractor, parentKey);
         RelationalDaoPriv dao = daos.get(shardId);
         return Transactions.execute(dao.sessionFactory, false, dao::save, entity, handler);
     }
 
-    <U> void save(LookupDao.LockedContext<U> context, T entity) throws Exception {
+    public boolean saveAll(String parentKey, Collection<T> entities) {
+        int shardId = ShardCalculator.shardId(shardManager, bucketIdExtractor, parentKey);
+        RelationalDaoPriv dao = daos.get(shardId);
+        return Transactions.execute(dao.sessionFactory, false, dao::saveAll, entities);
+    }
+
+    <U> void save(LookupDao.LockedContext<U> context, T entity) {
         RelationalDaoPriv dao = daos.get(context.getShardId());
         Transactions.execute(context.getSessionFactory(), false, dao::save, entity, t->t, false);
+    }
+
+    <U> void save(LookupDao.LockedContext<U> context, T entity, Function<T, T> handler) {
+        RelationalDaoPriv dao = daos.get(context.getShardId());
+        Transactions.execute(context.getSessionFactory(), false, dao::save, entity, handler, false);
+    }
+
+    <U> boolean update(LookupDao.LockedContext<U> context, Object id, Function<T, T> updater) {
+        RelationalDaoPriv dao = daos.get(context.getShardId());
+        return update(context.getSessionFactory(), dao, id, updater, false);
     }
 
     public boolean update(String parentKey, Object id, Function<T, T> updater) {
         int shardId = ShardCalculator.shardId(shardManager, bucketIdExtractor, parentKey);
         RelationalDaoPriv dao = daos.get(shardId);
+        return update(dao.sessionFactory, dao, id, updater, true);
+    }
+
+    private boolean update(SessionFactory daoSessionFactory, RelationalDaoPriv dao, Object id, Function<T, T> updater, boolean completeTransaction){
         try {
-            return Transactions.<T, Object, Boolean>execute(dao.sessionFactory, true, dao::get, id, entity -> {
+            return Transactions.<T, Object, Boolean>execute(daoSessionFactory, true, dao::get, id, (T entity) -> {
                 if(null == entity) {
                     return false;
                 }
@@ -172,7 +199,7 @@ public class RelationalDao<T> {
                 }
                 dao.update(entity, newEntity);
                 return true;
-            });
+            }, completeTransaction);
         } catch (Exception e) {
             throw new RuntimeException("Error updating entity: " + id, e);
         }
@@ -187,7 +214,7 @@ public class RelationalDao<T> {
                                                 .start(0)
                                                 .numRows(1)
                                                 .build();
-            return Transactions.<List<T>, SelectParamPriv, Boolean>execute(dao.sessionFactory, true, dao::select, selectParam, entityList -> {
+            return Transactions.<List<T>, SelectParamPriv, Boolean>execute(dao.sessionFactory, true, dao::select, selectParam, (List<T> entityList) -> {
                 if(entityList == null || entityList.isEmpty()) {
                     return false;
                 }
@@ -207,14 +234,14 @@ public class RelationalDao<T> {
         }
     }
 
-    public boolean updateAll(String parentKey, DetachedCriteria criteria, Function<T, T> updater) {
+    public boolean updateAll(String parentKey, int start, int numRows, DetachedCriteria criteria, Function<T, T> updater) {
         int shardId = ShardCalculator.shardId(shardManager, bucketIdExtractor, parentKey);
         RelationalDaoPriv dao = daos.get(shardId);
         try {
             SelectParamPriv selectParam = SelectParamPriv.builder()
                     .criteria(criteria)
-                    .start(0)
-                    .numRows(1)
+                    .start(start)
+                    .numRows(numRows)
                     .build();
             return Transactions.<List<T>, SelectParamPriv, Boolean>execute(dao.sessionFactory, true, dao::select, selectParam, entityList -> {
                 if(entityList == null || entityList.isEmpty()) {
@@ -261,13 +288,13 @@ public class RelationalDao<T> {
         return Transactions.execute(dao.sessionFactory, true, dao::select, selectParam, handler);
     }
 
-    public long count(String parentKey, DetachedCriteria criteria) throws Exception {
+    public long count(String parentKey, DetachedCriteria criteria) {
         int shardId = ShardCalculator.shardId(shardManager, bucketIdExtractor, parentKey);
         RelationalDaoPriv dao = daos.get(shardId);
         return Transactions.<Long, DetachedCriteria>execute(dao.sessionFactory, true, dao::count, criteria);
     }
 
-    public boolean exists(String parentKey, Object key) throws Exception {
+    public boolean exists(String parentKey, Object key) {
         int shardId = ShardCalculator.shardId(shardManager, bucketIdExtractor, parentKey);
         RelationalDaoPriv dao = daos.get(shardId);
         Optional<T> result = Transactions.<T, Object>executeAndResolve(dao.sessionFactory, true, dao::get, key);
@@ -275,12 +302,16 @@ public class RelationalDao<T> {
     }
 
     public List<T> scatterGather(DetachedCriteria criteria) {
+        return scatterGather(criteria, 0, 10);
+    }
+
+    public List<T> scatterGather(DetachedCriteria criteria, int start, int numRows) {
         return daos.stream().map(dao -> {
             try {
                 SelectParamPriv selectParam = SelectParamPriv.<T>builder()
                         .criteria(criteria)
-                        .start(0)
-                        .numRows(10)
+                        .start(start)
+                        .numRows(numRows)
                         .build();
                 return Transactions.execute(dao.sessionFactory, true, dao::select, selectParam);
             } catch (Exception e) {
@@ -289,4 +320,7 @@ public class RelationalDao<T> {
         }).flatMap(Collection::stream).collect(Collectors.toList());
     }
 
+    protected Field getKeyField() {
+        return this.keyField;
+    }
 }
