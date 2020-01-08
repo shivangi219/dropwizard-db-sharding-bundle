@@ -296,7 +296,7 @@ public class LookupDao<T> implements ShardedDao<T> {
         for (int i = 0; i < daos.size(); i++) {
             try {
                 LookupDaoPriv dao = daos.get(i);
-                return executeTracked(() -> Transactions.execute(dao.sessionFactory, true, dao::select, criteria), i, "scatterGather");
+                results.addAll(executeTracked(() -> Transactions.execute(dao.sessionFactory, true, dao::select, criteria), i, "scatterGather"));
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }
