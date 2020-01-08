@@ -196,7 +196,7 @@ public class LookupDao<T> implements ShardedDao<T> {
     public <U> U get(String key, Function<T, U> handler) throws Exception {
         int shardId = shardCalculator.shardId(key);
         LookupDaoPriv dao = daos.get(shardId);
-        return exec(()->Transactions.execute(dao.sessionFactory, true, dao::get, key, handler), getName(shardId, "get"));
+        return executeTracked(()->Transactions.execute(dao.sessionFactory, true, dao::get, key, handler), shardId, "get");
     }
 
     /**
@@ -237,19 +237,19 @@ public class LookupDao<T> implements ShardedDao<T> {
         int shardId = shardCalculator.shardId(key);
         log.debug("Saving entity of type {} with key {} to shard {}", entityClass.getSimpleName(), key, shardId);
         LookupDaoPriv dao = daos.get(shardId);
-        return exec(()->Transactions.execute(dao.sessionFactory, false, dao::save, entity, handler), getName(shardId, "save"));
+        return executeTracked(()->Transactions.execute(dao.sessionFactory, false, dao::save, entity, handler), shardId, "save");
     }
 
     public boolean updateInLock(String id, Function<Optional<T>, T> updater) {
         int shardId = shardCalculator.shardId(id);
         LookupDaoPriv dao = daos.get(shardId);
-        return exec(()->updateImpl(id, dao::getLockedForWrite, updater, dao), getName(shardId, getName(shardId, "updateInLock")));
+        return executeTracked(()->updateImpl(id, dao::getLockedForWrite, updater, dao), shardId, "updateInLock");
     }
 
     public boolean update(String id, Function<Optional<T>, T> updater) {
         int shardId = shardCalculator.shardId(id);
         LookupDaoPriv dao = daos.get(shardId);
-        return exec(()->updateImpl(id, dao::get, updater, dao), getName(shardId, getName(shardId, "update")));
+        return executeTracked(()->updateImpl(id, dao::get, updater, dao), shardId, "update");
     }
 
     private boolean updateImpl(String id, Function<String, T> getter, Function<Optional<T>, T> updater, LookupDaoPriv dao) {
@@ -296,8 +296,7 @@ public class LookupDao<T> implements ShardedDao<T> {
         for (int i = 0; i < daos.size(); i++) {
             try {
                 LookupDaoPriv dao = daos.get(i);
-                return exec(() -> Transactions.execute(dao.sessionFactory, true, dao::select, criteria),
-                        getName(i, "scatterGather"));
+                return executeTracked(() -> Transactions.execute(dao.sessionFactory, true, dao::select, criteria), i, "scatterGather");
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }
@@ -320,7 +319,7 @@ public class LookupDao<T> implements ShardedDao<T> {
             try {
                 DetachedCriteria criteria = DetachedCriteria.forClass(entityClass)
                         .add(Restrictions.in(keyField.getName(),lookupKeysGroupByShards.get(shardId)));
-                return exec(()->Transactions.execute(daos.get(shardId).sessionFactory, true, daos.get(shardId)::select, criteria),getName(shardId, "get"));
+                return executeTracked(()->Transactions.execute(daos.get(shardId).sessionFactory, true, daos.get(shardId)::select, criteria),shardId, "get");
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }
@@ -330,12 +329,12 @@ public class LookupDao<T> implements ShardedDao<T> {
     public <U> U runInSession(String id, Function<Session, U> handler) {
         int shardId = shardCalculator.shardId(id);
         LookupDaoPriv dao = daos.get(shardId);
-        return exec(()->Transactions.execute(dao.sessionFactory, handler), getName(shardId, "runInSession"));
+        return executeTracked(()->Transactions.execute(dao.sessionFactory, handler), shardId, "runInSession");
     }
 
     public boolean delete(String id) {
         int shardId = shardCalculator.shardId(id);
-        return exec(()->Transactions.execute(daos.get(shardId).sessionFactory, false, daos.get(shardId)::delete, id), getName(shardId, "delete"));
+        return executeTracked(()->Transactions.execute(daos.get(shardId).sessionFactory, false, daos.get(shardId)::delete, id), shardId, "delete");
     }
 
     protected Field getKeyField() {
@@ -518,11 +517,8 @@ public class LookupDao<T> implements ShardedDao<T> {
         }
     }
 
-    private String getName(int shardId, String function){
-        return this.getClass().getCanonicalName() + "." + shardInfoProvider.shardName(shardId) + ".entities." + entityClass.getCanonicalName().replace(".", "_") + "." + function;
-    }
-
-    <X> X exec(Supplier<X> t, String functionName) {
+    <X> X executeTracked(Supplier<X> t, int shardId, String function) {
+        String functionName = this.getClass().getCanonicalName() + "." + shardInfoProvider.shardName(shardId) + ".entities." + entityClass.getCanonicalName().replace(".", "_") + "." + function;
         Timer.Context time = metricRegistry.timer(functionName).time();
         try {
             return t.get();

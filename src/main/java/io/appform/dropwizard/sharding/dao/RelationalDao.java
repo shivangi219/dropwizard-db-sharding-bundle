@@ -168,7 +168,7 @@ public class RelationalDao<T> implements ShardedDao<T> {
     public<U> U get(String parentKey, Object key, Function<T, U> function) {
         int shardId = shardCalculator.shardId(parentKey);
         RelationalDaoPriv dao = daos.get(shardId);
-        return exec(()->Transactions.execute(dao.sessionFactory, true, dao::get, key, function), getName(shardId, "get"));
+        return executeTracked(()->Transactions.execute(dao.sessionFactory, true, dao::get, key, function), shardId, "get");
     }
 
     public Optional<T> save(String parentKey, T entity) throws Exception {
@@ -178,28 +178,28 @@ public class RelationalDao<T> implements ShardedDao<T> {
     public <U> U save(String parentKey, T entity, Function<T, U> handler) {
         int shardId = shardCalculator.shardId(parentKey);
         RelationalDaoPriv dao = daos.get(shardId);
-        return exec(()->Transactions.execute(dao.sessionFactory, false, dao::save, entity, handler), getName(shardId, "save"));
+        return executeTracked(()->Transactions.execute(dao.sessionFactory, false, dao::save, entity, handler), shardId, "save");
     }
 
     public boolean saveAll(String parentKey, Collection<T> entities) {
         int shardId = shardCalculator.shardId(parentKey);
         RelationalDaoPriv dao = daos.get(shardId);
-        return exec(()-> Transactions.execute(dao.sessionFactory, false, dao::saveAll, entities), getName( shardId, "saveAll"));
+        return executeTracked(()-> Transactions.execute(dao.sessionFactory, false, dao::saveAll, entities), shardId, "saveAll");
     }
 
     <U> void save(LookupDao.LockedContext<U> context, T entity) {
         RelationalDaoPriv dao = daos.get(context.getShardId());
-        exec(()->Transactions.execute(context.getSessionFactory(), false, dao::save, entity, t->t, false), getName(context.getShardId(), "save"));
+        executeTracked(()->Transactions.execute(context.getSessionFactory(), false, dao::save, entity, t->t, false), context.getShardId(), "save");
     }
 
     <U> void save(LookupDao.LockedContext<U> context, T entity, Function<T, T> handler) {
         RelationalDaoPriv dao = daos.get(context.getShardId());
-        exec(()->Transactions.execute(context.getSessionFactory(), false, dao::save, entity, handler, false), getName(context.getShardId(), "save"));
+        executeTracked(()->Transactions.execute(context.getSessionFactory(), false, dao::save, entity, handler, false), context.getShardId(), "save");
     }
 
     <U> boolean update(LookupDao.LockedContext<U> context, Object id, Function<T, T> updater) {
         RelationalDaoPriv dao = daos.get(context.getShardId());
-        return exec(()->update(context.getSessionFactory(), dao, id, updater, false),getName(context.getShardId(), "update"));
+        return executeTracked(()->update(context.getSessionFactory(), dao, id, updater, false), context.getShardId(), "update");
     }
 
     <U> boolean update(LookupDao.LockedContext<U> context,
@@ -213,7 +213,7 @@ public class RelationalDao<T> implements ShardedDao<T> {
                     .criteria(criteria)
                     .build();
 
-            return exec(()-> Transactions.<ScrollableResults, ScrollParamPriv, Boolean>execute(context.getSessionFactory(), true, dao::scroll, scrollParam, scrollableResults -> {
+            return executeTracked(()-> Transactions.<ScrollableResults, ScrollParamPriv, Boolean>execute(context.getSessionFactory(), true, dao::scroll, scrollParam, scrollableResults -> {
                 boolean updateNextObject = true;
                 try {
                     while(scrollableResults.next() && updateNextObject) {
@@ -234,7 +234,7 @@ public class RelationalDao<T> implements ShardedDao<T> {
                 }
                 return true;
             }, false),
-                    getName(context.getShardId(), "update"));
+                    context.getShardId(), "update");
         } catch (Exception e) {
             throw new RuntimeException("Error updating entity with scroll: " + criteria, e);
         }
@@ -243,13 +243,13 @@ public class RelationalDao<T> implements ShardedDao<T> {
     public boolean update(String parentKey, Object id, Function<T, T> updater) {
         int shardId = shardCalculator.shardId(parentKey);
         RelationalDaoPriv dao = daos.get(shardId);
-        return exec(()->update(dao.sessionFactory, dao, id, updater, true),getName(shardId, "update"));
+        return executeTracked(()->update(dao.sessionFactory, dao, id, updater, true), shardId, "update");
     }
 
     public <U> U runInSession(String id, Function<Session, U> handler) {
         int shardId = shardCalculator.shardId(id);
         RelationalDaoPriv dao = daos.get(shardId);
-        return exec(()->Transactions.execute(dao.sessionFactory, handler), getName(shardId, "runInSession"));
+        return executeTracked(()->Transactions.execute(dao.sessionFactory, handler), shardId, "runInSession");
     }
 
     private boolean update(SessionFactory daoSessionFactory, RelationalDaoPriv dao, Object id, Function<T, T> updater, boolean completeTransaction){
@@ -279,7 +279,7 @@ public class RelationalDao<T> implements ShardedDao<T> {
                                                 .start(0)
                                                 .numRows(1)
                                                 .build();
-            return exec(()->Transactions.<List<T>, SelectParamPriv, Boolean>execute(dao.sessionFactory, true, dao::select, selectParam, (List<T> entityList) -> {
+            return executeTracked(()->Transactions.<List<T>, SelectParamPriv, Boolean>execute(dao.sessionFactory, true, dao::select, selectParam, (List<T> entityList) -> {
                 if(entityList == null || entityList.isEmpty()) {
                     return false;
                 }
@@ -293,7 +293,7 @@ public class RelationalDao<T> implements ShardedDao<T> {
                 }
                 dao.update(oldEntity, newEntity);
                 return true;
-            }), getName(shardId, "update"));
+            }), shardId, "update");
         } catch (Exception e) {
             throw new RuntimeException("Error updating entity with criteria: " + criteria, e);
         }
@@ -312,7 +312,7 @@ public class RelationalDao<T> implements ShardedDao<T> {
                     .numRows(1)
                     .build();
 
-            return exec(()->Transactions.<List<T>, SelectParamPriv, Boolean>execute(context.getSessionFactory(), true, dao::select, selectParam, (List<T> entityList) -> {
+            return executeTracked(()->Transactions.<List<T>, SelectParamPriv, Boolean>execute(context.getSessionFactory(), true, dao::select, selectParam, (List<T> entityList) -> {
                 if(entityList == null || entityList.isEmpty()) {
                     Preconditions.checkNotNull(entityGenerator, "Entity generator can't be null");
                     final T newEntity = entityGenerator.get();
@@ -331,7 +331,7 @@ public class RelationalDao<T> implements ShardedDao<T> {
                 }
                 dao.update(oldEntity, newEntity);
                 return true;
-            }, false), getName(context.getShardId(),"createOrUpdate"));
+            }, false), context.getShardId(),"createOrUpdate");
         } catch (Exception e) {
             throw new RuntimeException("Error updating entity with criteria: " + criteria, e);
         }
@@ -346,7 +346,7 @@ public class RelationalDao<T> implements ShardedDao<T> {
                     .start(start)
                     .numRows(numRows)
                     .build();
-            return exec(()->Transactions.<List<T>, SelectParamPriv, Boolean>execute(dao.sessionFactory, true, dao::select, selectParam, entityList -> {
+            return executeTracked(()->Transactions.<List<T>, SelectParamPriv, Boolean>execute(dao.sessionFactory, true, dao::select, selectParam, entityList -> {
                 if (entityList == null || entityList.isEmpty()) {
                     return false;
                 }
@@ -361,7 +361,7 @@ public class RelationalDao<T> implements ShardedDao<T> {
                     dao.update(oldEntity, newEntity);
                 }
                 return true;
-            }), getName(shardId, "updateAll"));
+            }), shardId, "updateAll");
         } catch (Exception e) {
             throw new RuntimeException("Error updating entity with criteria: " + criteria, e);
         }
@@ -379,19 +379,19 @@ public class RelationalDao<T> implements ShardedDao<T> {
                 .start(first)
                 .numRows(numResults)
                 .build();
-        return exec(()->Transactions.execute(dao.sessionFactory, true, dao::select, selectParam, handler), getName(shardId, "select"));
+        return executeTracked(()->Transactions.execute(dao.sessionFactory, true, dao::select, selectParam, handler), shardId, "select");
     }
 
     public long count(String parentKey, DetachedCriteria criteria) {
         int shardId = shardCalculator.shardId(parentKey);
         RelationalDaoPriv dao = daos.get(shardId);
-        return exec(()->Transactions.<Long, DetachedCriteria>execute(dao.sessionFactory, true, dao::count, criteria), getName(shardId, "count"));
+        return executeTracked(()->Transactions.<Long, DetachedCriteria>execute(dao.sessionFactory, true, dao::count, criteria), shardId, "count");
     }
 
     public boolean exists(String parentKey, Object key) {
         int shardId = shardCalculator.shardId(parentKey);
         RelationalDaoPriv dao = daos.get(shardId);
-        Optional<T> result = exec(()->Transactions.<T, Object>executeAndResolve(dao.sessionFactory, true, dao::get, key), getName(shardId, "exists"));
+        Optional<T> result = executeTracked(()->Transactions.<T, Object>executeAndResolve(dao.sessionFactory, true, dao::get, key), shardId, "exists");
         return result.isPresent();
     }
 
@@ -405,8 +405,9 @@ public class RelationalDao<T> implements ShardedDao<T> {
                         .numRows(numRows)
                         .build();
                 RelationalDaoPriv dao = daos.get(i);
-                results.addAll(exec(() -> Transactions.execute(dao.sessionFactory, true, dao::select, selectParam),
-                        getName(i, "scatterGather")));
+                results.addAll(
+                        executeTracked(() -> Transactions.execute(dao.sessionFactory, true, dao::select, selectParam),
+                        i, "scatterGather"));
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }
@@ -418,11 +419,8 @@ public class RelationalDao<T> implements ShardedDao<T> {
         return this.keyField;
     }
 
-    private String getName(int shardId, String function){
-        return this.getClass().getCanonicalName() + "." + shardInfoProvider.shardName(shardId) + ".entities." + entityClass.getCanonicalName().replace(".", "_") + "." + function;
-    }
-
-    <X> X exec(Supplier<X> t, String functionName) {
+    <X> X executeTracked(Supplier<X> t, int shardId, String function) {
+        String functionName = this.getClass().getCanonicalName() + "." + shardInfoProvider.shardName(shardId) + ".entities." + entityClass.getCanonicalName().replace(".", "_") + "." + function;
         Timer.Context time = metricRegistry.timer(functionName).time();
         try {
             return t.get();
