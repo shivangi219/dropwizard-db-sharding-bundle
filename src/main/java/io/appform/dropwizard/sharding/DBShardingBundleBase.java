@@ -17,6 +17,7 @@
 
 package io.appform.dropwizard.sharding;
 
+import com.codahale.metrics.MetricRegistry;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -76,6 +77,8 @@ abstract class DBShardingBundleBase<T extends Configuration> implements Configur
     @Getter
     private int numShards;
 
+    private MetricRegistry metricRegistry;
+
     private ShardInfoProvider shardInfoProvider;
 
     private HealthCheckManager healthCheckManager;
@@ -133,6 +136,7 @@ abstract class DBShardingBundleBase<T extends Configuration> implements Configur
 
     @Override
     public void run(T configuration, Environment environment) {
+        metricRegistry = environment.metrics();
         sessionFactories = shardBundles.stream().map(HibernateBundle::getSessionFactory).collect(Collectors.toList());
         environment.admin().addTask(new BlacklistShardTask(shardManager));
         environment.admin().addTask(new UnblacklistShardTask(shardManager));
@@ -177,7 +181,7 @@ abstract class DBShardingBundleBase<T extends Configuration> implements Configur
 
     public <EntityType, T extends Configuration>
     LookupDao<EntityType> createParentObjectDao(Class<EntityType> clazz) {
-        return new LookupDao<>(this.sessionFactories, clazz,
+        return new LookupDao<>(metricRegistry, this.sessionFactories, clazz,
                 new ShardCalculator<>(this.shardManager, new ConsistentHashBucketIdExtractor<>(this.shardManager)));
     }
 
@@ -192,7 +196,7 @@ abstract class DBShardingBundleBase<T extends Configuration> implements Configur
     public <EntityType, T extends Configuration>
     LookupDao<EntityType> createParentObjectDao(Class<EntityType> clazz,
                                                 BucketIdExtractor<String> bucketIdExtractor) {
-        return new LookupDao<>(this.sessionFactories, clazz, new ShardCalculator<>(this.shardManager, bucketIdExtractor));
+        return new LookupDao<>(metricRegistry, this.sessionFactories, clazz, new ShardCalculator<>(this.shardManager, bucketIdExtractor));
     }
 
     public <EntityType, T extends Configuration>
@@ -205,7 +209,7 @@ abstract class DBShardingBundleBase<T extends Configuration> implements Configur
 
     public <EntityType, T extends Configuration>
     RelationalDao<EntityType> createRelatedObjectDao(Class<EntityType> clazz) {
-        return new RelationalDao<>(this.sessionFactories, clazz,
+        return new RelationalDao<>(metricRegistry, this.sessionFactories, clazz,
                 new ShardCalculator<>(this.shardManager, new ConsistentHashBucketIdExtractor<>(this.shardManager)));
     }
 
@@ -223,7 +227,7 @@ abstract class DBShardingBundleBase<T extends Configuration> implements Configur
     public <EntityType, T extends Configuration>
     RelationalDao<EntityType> createRelatedObjectDao(Class<EntityType> clazz,
                                                      BucketIdExtractor<String> bucketIdExtractor) {
-        return new RelationalDao<>(this.sessionFactories, clazz, new ShardCalculator<>(this.shardManager, bucketIdExtractor));
+        return new RelationalDao<>(metricRegistry, this.sessionFactories, clazz, new ShardCalculator<>(this.shardManager, bucketIdExtractor));
     }
 
     public <EntityType, T extends Configuration>

@@ -17,6 +17,7 @@
 
 package io.appform.dropwizard.sharding.dao;
 
+import com.codahale.metrics.MetricRegistry;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
 import io.dropwizard.hibernate.AbstractDAO;
@@ -136,6 +137,7 @@ public class LookupDao<T> implements ShardedDao<T> {
     @Getter
     private final ShardCalculator<String> shardCalculator;
     private final Field keyField;
+    private final MetricRegistry metricRegistry;
 
     /**
      * Creates a new sharded DAO. The number of managed shards and bucketing is controlled by the {@link ShardManager}.
@@ -143,13 +145,14 @@ public class LookupDao<T> implements ShardedDao<T> {
      * @param sessionFactories a session provider for each shard
      * @param shardCalculator calculator for shards
      */
-    public LookupDao(
+    public LookupDao(MetricRegistry metricRegistry,
             List<SessionFactory> sessionFactories,
             Class<T> entityClass,
             ShardCalculator<String> shardCalculator) {
         this.daos = sessionFactories.stream().map(LookupDaoPriv::new).collect(Collectors.toList());
         this.entityClass = entityClass;
         this.shardCalculator = shardCalculator;
+        this.metricRegistry = metricRegistry;
 
         Field fields[] = FieldUtils.getFieldsWithAnnotation(entityClass, LookupKey.class);
         Preconditions.checkArgument(fields.length != 0, "At least one field needs to be sharding key");

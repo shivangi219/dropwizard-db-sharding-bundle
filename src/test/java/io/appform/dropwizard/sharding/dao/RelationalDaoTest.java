@@ -65,7 +65,7 @@ public class RelationalDaoTest {
             sessionFactories.add(buildSessionFactory(String.format("db_%d", i)));
         }
         final ShardManager shardManager = new BalancedShardManager(sessionFactories.size());
-        relationalDao = new RelationalDao<>(sessionFactories,
+        relationalDao = new RelationalDao<>(null, sessionFactories,
                                             RelationalEntity.class,
                                             new ShardCalculator<>(shardManager,
                                                                   new ConsistentHashBucketIdExtractor<>(shardManager)));
