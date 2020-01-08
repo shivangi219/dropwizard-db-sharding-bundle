@@ -21,6 +21,7 @@ import com.codahale.metrics.Meter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.Timer;
 import com.google.common.base.Preconditions;
+import io.appform.dropwizard.sharding.ShardInfoProvider;
 import io.dropwizard.hibernate.AbstractDAO;
 import io.appform.dropwizard.sharding.utils.ShardCalculator;
 import io.appform.dropwizard.sharding.utils.Transactions;
@@ -127,6 +128,7 @@ public class RelationalDao<T> implements ShardedDao<T> {
     private final ShardCalculator<String> shardCalculator;
     private final Field keyField;
     private final MetricRegistry metricRegistry;
+    private final ShardInfoProvider shardInfoProvider;
 
     /**
      * Create a relational DAO.
@@ -135,12 +137,14 @@ public class RelationalDao<T> implements ShardedDao<T> {
      * @param shardCalculator
      */
     public RelationalDao(MetricRegistry metricRegistry,
+            ShardInfoProvider shardInfoProvider,
             List<SessionFactory> sessionFactories, Class<T> entityClass,
             ShardCalculator<String> shardCalculator ) {
         this.shardCalculator = shardCalculator;
         this.daos = sessionFactories.stream().map(RelationalDaoPriv::new).collect(Collectors.toList());
         this.entityClass = entityClass;
         this.metricRegistry = metricRegistry;
+        this.shardInfoProvider = shardInfoProvider;
 
         Field fields[] = FieldUtils.getFieldsWithAnnotation(entityClass, Id.class);
         Preconditions.checkArgument(fields.length != 0, "A field needs to be designated as @Id");
@@ -399,7 +403,7 @@ public class RelationalDao<T> implements ShardedDao<T> {
                         .start(start)
                         .numRows(numRows)
                         .build();
-                return exec(()->Transactions.execute(dao.sessionFactory, true, dao::select, selectParam),entityClass.getSimpleName()+".scatterGather");
+                return exec(()->Transactions.execute(dao.sessionFactory, true, dao::select, selectParam),this.getClass().getPackage() + ".entities." + entityClass.getSimpleName() + ".scatterGather");
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }
@@ -411,7 +415,7 @@ public class RelationalDao<T> implements ShardedDao<T> {
     }
 
     private String getName(int shardId, String function){
-        return "ShardMetric." + entityClass.getSimpleName() + "." + shardId + "." + function;
+        return this.getClass().getCanonicalName() + "." + shardInfoProvider.shardName(shardId) + ".entities." + entityClass.getCanonicalName().replace(".", "_") + "." + function;
     }
 
     <X> X exec(Supplier<X> t, String functionName) {
@@ -420,7 +424,7 @@ public class RelationalDao<T> implements ShardedDao<T> {
             return t.get();
         }
         catch (Exception e){
-            metricRegistry.meter("Exception."+ functionName).mark();
+            metricRegistry.meter(functionName + ".exceptions").mark();
             throw e;
         }
         finally {

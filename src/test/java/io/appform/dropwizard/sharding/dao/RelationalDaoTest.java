@@ -17,7 +17,9 @@
 
 package io.appform.dropwizard.sharding.dao;
 
+import com.codahale.metrics.MetricRegistry;
 import com.google.common.collect.Lists;
+import io.appform.dropwizard.sharding.ShardInfoProvider;
 import io.appform.dropwizard.sharding.dao.testdata.entities.RelationalEntity;
 import io.appform.dropwizard.sharding.sharding.BalancedShardManager;
 import io.appform.dropwizard.sharding.sharding.ShardManager;
@@ -65,7 +67,7 @@ public class RelationalDaoTest {
             sessionFactories.add(buildSessionFactory(String.format("db_%d", i)));
         }
         final ShardManager shardManager = new BalancedShardManager(sessionFactories.size());
-        relationalDao = new RelationalDao<>(null, sessionFactories,
+        relationalDao = new RelationalDao<>(new MetricRegistry(),new ShardInfoProvider("default"), sessionFactories,
                                             RelationalEntity.class,
                                             new ShardCalculator<>(shardManager,
                                                                   new ConsistentHashBucketIdExtractor<>(shardManager)));

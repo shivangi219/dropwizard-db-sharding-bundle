@@ -18,8 +18,10 @@
 package io.appform.dropwizard.sharding.dao;
 
 import com.codahale.metrics.MetricRegistry;
+import com.codahale.metrics.Timer;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
+import io.appform.dropwizard.sharding.ShardInfoProvider;
 import io.dropwizard.hibernate.AbstractDAO;
 import io.appform.dropwizard.sharding.sharding.LookupKey;
 import io.appform.dropwizard.sharding.sharding.ShardManager;
@@ -138,6 +140,7 @@ public class LookupDao<T> implements ShardedDao<T> {
     private final ShardCalculator<String> shardCalculator;
     private final Field keyField;
     private final MetricRegistry metricRegistry;
+    private final ShardInfoProvider shardInfoProvider;
 
     /**
      * Creates a new sharded DAO. The number of managed shards and bucketing is controlled by the {@link ShardManager}.
@@ -146,6 +149,7 @@ public class LookupDao<T> implements ShardedDao<T> {
      * @param shardCalculator calculator for shards
      */
     public LookupDao(MetricRegistry metricRegistry,
+            ShardInfoProvider shardInfoProvider,
             List<SessionFactory> sessionFactories,
             Class<T> entityClass,
             ShardCalculator<String> shardCalculator) {
@@ -153,6 +157,7 @@ public class LookupDao<T> implements ShardedDao<T> {
         this.entityClass = entityClass;
         this.shardCalculator = shardCalculator;
         this.metricRegistry = metricRegistry;
+        this.shardInfoProvider = shardInfoProvider;
 
         Field fields[] = FieldUtils.getFieldsWithAnnotation(entityClass, LookupKey.class);
         Preconditions.checkArgument(fields.length != 0, "At least one field needs to be sharding key");
@@ -194,7 +199,7 @@ public class LookupDao<T> implements ShardedDao<T> {
     public <U> U get(String key, Function<T, U> handler) throws Exception {
         int shardId = shardCalculator.shardId(key);
         LookupDaoPriv dao = daos.get(shardId);
-        return Transactions.execute(dao.sessionFactory, true, dao::get, key, handler);
+        return exec(()->Transactions.execute(dao.sessionFactory, true, dao::get, key, handler), getName(shardId, "get"));
     }
 
     /**
@@ -235,19 +240,19 @@ public class LookupDao<T> implements ShardedDao<T> {
         int shardId = shardCalculator.shardId(key);
         log.debug("Saving entity of type {} with key {} to shard {}", entityClass.getSimpleName(), key, shardId);
         LookupDaoPriv dao = daos.get(shardId);
-        return Transactions.execute(dao.sessionFactory, false, dao::save, entity, handler);
+        return exec(()->Transactions.execute(dao.sessionFactory, false, dao::save, entity, handler), getName(shardId, "save"));
     }
 
     public boolean updateInLock(String id, Function<Optional<T>, T> updater) {
         int shardId = shardCalculator.shardId(id);
         LookupDaoPriv dao = daos.get(shardId);
-        return updateImpl(id, dao::getLockedForWrite, updater, dao);
+        return exec(()->updateImpl(id, dao::getLockedForWrite, updater, dao), getName(shardId, getName(shardId, "updateInLock")));
     }
 
     public boolean update(String id, Function<Optional<T>, T> updater) {
         int shardId = shardCalculator.shardId(id);
         LookupDaoPriv dao = daos.get(shardId);
-        return updateImpl(id, dao::get, updater, dao);
+        return exec(()->updateImpl(id, dao::get, updater, dao), getName(shardId, getName(shardId, "update")));
     }
 
     private boolean updateImpl(String id, Function<String, T> getter, Function<Optional<T>, T> updater, LookupDaoPriv dao) {
@@ -292,7 +297,7 @@ public class LookupDao<T> implements ShardedDao<T> {
     public List<T> scatterGather(DetachedCriteria criteria) {
         return daos.stream().map(dao -> {
             try {
-                return Transactions.execute(dao.sessionFactory, true, dao::select, criteria);
+                return exec(()->Transactions.execute(dao.sessionFactory, true, dao::select, criteria),this.getClass().getPackage() + ".entities." + entityClass.getSimpleName() + ".scatterGather");
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }
@@ -314,7 +319,7 @@ public class LookupDao<T> implements ShardedDao<T> {
             try {
                 DetachedCriteria criteria = DetachedCriteria.forClass(entityClass)
                         .add(Restrictions.in(keyField.getName(),lookupKeysGroupByShards.get(shardId)));
-                return Transactions.execute(daos.get(shardId).sessionFactory, true, daos.get(shardId)::select, criteria);
+                return exec(()->Transactions.execute(daos.get(shardId).sessionFactory, true, daos.get(shardId)::select, criteria),getName(shardId, "get"));
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }
@@ -324,12 +329,12 @@ public class LookupDao<T> implements ShardedDao<T> {
     public <U> U runInSession(String id, Function<Session, U> handler) {
         int shardId = shardCalculator.shardId(id);
         LookupDaoPriv dao = daos.get(shardId);
-        return Transactions.execute(dao.sessionFactory, handler);
+        return exec(()->Transactions.execute(dao.sessionFactory, handler), getName(shardId, "runInSession"));
     }
 
     public boolean delete(String id) {
         int shardId = shardCalculator.shardId(id);
-        return Transactions.execute(daos.get(shardId).sessionFactory, false, daos.get(shardId)::delete, id);
+        return exec(()->Transactions.execute(daos.get(shardId).sessionFactory, false, daos.get(shardId)::delete, id), getName(shardId, "runInSession"));
     }
 
     protected Field getKeyField() {
@@ -509,6 +514,24 @@ public class LookupDao<T> implements ShardedDao<T> {
 
             }
             return result;
+        }
+    }
+
+    private String getName(int shardId, String function){
+        return this.getClass().getCanonicalName() + "." + shardInfoProvider.shardName(shardId) + ".entities." + entityClass.getCanonicalName().replace(".", "_") + "." + function;
+    }
+
+    <X> X exec(Supplier<X> t, String functionName) {
+        Timer.Context time = metricRegistry.timer(functionName).time();
+        try {
+            return t.get();
+        }
+        catch (Exception e){
+            metricRegistry.meter(functionName + ".exceptions").mark();
+            throw e;
+        }
+        finally {
+            time.stop();
         }
     }
 }

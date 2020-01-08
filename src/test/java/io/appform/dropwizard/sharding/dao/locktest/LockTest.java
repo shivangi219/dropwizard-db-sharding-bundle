@@ -17,8 +17,10 @@
 
 package io.appform.dropwizard.sharding.dao.locktest;
 
+import com.codahale.metrics.MetricRegistry;
 import com.google.common.base.Strings;
 import com.google.common.collect.Lists;
+import io.appform.dropwizard.sharding.ShardInfoProvider;
 import io.appform.dropwizard.sharding.dao.LookupDao;
 import io.appform.dropwizard.sharding.dao.RelationalDao;
 import io.appform.dropwizard.sharding.sharding.BalancedShardManager;
@@ -73,8 +75,8 @@ public class LockTest {
         }
         final ShardManager shardManager = new BalancedShardManager(sessionFactories.size());
         final ShardCalculator<String> shardCalculator = new ShardCalculator<>(shardManager, Integer::parseInt);
-        lookupDao = new LookupDao<>(null, sessionFactories, SomeLookupObject.class, shardCalculator);
-        relationDao = new RelationalDao<>(null, sessionFactories, SomeOtherObject.class, shardCalculator);
+        lookupDao = new LookupDao<>(new MetricRegistry(), new ShardInfoProvider("default"), sessionFactories, SomeLookupObject.class, shardCalculator);
+        relationDao = new RelationalDao<>(new MetricRegistry(),new ShardInfoProvider("default"), sessionFactories, SomeOtherObject.class, shardCalculator);
     }
 
     @Test
