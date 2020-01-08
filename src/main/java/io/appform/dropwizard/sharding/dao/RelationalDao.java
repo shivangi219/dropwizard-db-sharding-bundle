@@ -17,14 +17,13 @@
 
 package io.appform.dropwizard.sharding.dao;
 
-import com.codahale.metrics.Meter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.Timer;
 import com.google.common.base.Preconditions;
 import io.appform.dropwizard.sharding.ShardInfoProvider;
-import io.dropwizard.hibernate.AbstractDAO;
 import io.appform.dropwizard.sharding.utils.ShardCalculator;
 import io.appform.dropwizard.sharding.utils.Transactions;
+import io.dropwizard.hibernate.AbstractDAO;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
@@ -37,6 +36,7 @@ import org.hibernate.criterion.Restrictions;
 
 import javax.persistence.Id;
 import java.lang.reflect.Field;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -396,18 +396,22 @@ public class RelationalDao<T> implements ShardedDao<T> {
     }
 
     public List<T> scatterGather(DetachedCriteria criteria, int start, int numRows) {
-        return daos.stream().map(dao -> {
+        List<T> results = new ArrayList<>();
+        for (int i = 0; i < daos.size(); i++) {
             try {
                 SelectParamPriv selectParam = SelectParamPriv.<T>builder()
                         .criteria(criteria)
                         .start(start)
                         .numRows(numRows)
                         .build();
-                return exec(()->Transactions.execute(dao.sessionFactory, true, dao::select, selectParam),this.getClass().getPackage() + ".entities." + entityClass.getSimpleName() + ".scatterGather");
+                RelationalDaoPriv dao = daos.get(i);
+                results.addAll(exec(() -> Transactions.execute(dao.sessionFactory, true, dao::select, selectParam),
+                        getName(i, "scatterGather")));
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }
-        }).flatMap(Collection::stream).collect(Collectors.toList());
+        }
+        return results;
     }
 
     protected Field getKeyField() {

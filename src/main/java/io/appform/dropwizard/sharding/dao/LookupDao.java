@@ -22,12 +22,12 @@ import com.codahale.metrics.Timer;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
 import io.appform.dropwizard.sharding.ShardInfoProvider;
-import io.dropwizard.hibernate.AbstractDAO;
 import io.appform.dropwizard.sharding.sharding.LookupKey;
 import io.appform.dropwizard.sharding.sharding.ShardManager;
 import io.appform.dropwizard.sharding.utils.ShardCalculator;
 import io.appform.dropwizard.sharding.utils.TransactionHandler;
 import io.appform.dropwizard.sharding.utils.Transactions;
+import io.dropwizard.hibernate.AbstractDAO;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.ClassUtils;
@@ -39,10 +39,7 @@ import org.hibernate.criterion.DetachedCriteria;
 import org.hibernate.criterion.Restrictions;
 
 import java.lang.reflect.Field;
-import java.util.Collection;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 import java.util.function.BooleanSupplier;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -295,13 +292,17 @@ public class LookupDao<T> implements ShardedDao<T> {
      * @return List of elements or empty if none match
      */
     public List<T> scatterGather(DetachedCriteria criteria) {
-        return daos.stream().map(dao -> {
+        List<T> results = new ArrayList<>();
+        for (int i = 0; i < daos.size(); i++) {
             try {
-                return exec(()->Transactions.execute(dao.sessionFactory, true, dao::select, criteria),this.getClass().getPackage() + ".entities." + entityClass.getSimpleName() + ".scatterGather");
+                LookupDaoPriv dao = daos.get(i);
+                return exec(() -> Transactions.execute(dao.sessionFactory, true, dao::select, criteria),
+                        getName(i, "scatterGather"));
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }
-        }).flatMap(Collection::stream).collect(Collectors.toList());
+        }
+        return results;
     }
 
     /**
@@ -334,7 +335,7 @@ public class LookupDao<T> implements ShardedDao<T> {
 
     public boolean delete(String id) {
         int shardId = shardCalculator.shardId(id);
-        return exec(()->Transactions.execute(daos.get(shardId).sessionFactory, false, daos.get(shardId)::delete, id), getName(shardId, "runInSession"));
+        return exec(()->Transactions.execute(daos.get(shardId).sessionFactory, false, daos.get(shardId)::delete, id), getName(shardId, "delete"));
     }
 
     protected Field getKeyField() {
