@@ -518,7 +518,7 @@ public class LookupDao<T> implements ShardedDao<T> {
     }
 
     <X> X executeTracked(Supplier<X> t, int shardId, String function) {
-        String functionName = this.getClass().getCanonicalName() + "." + shardInfoProvider.shardName(shardId) + "." + function;
+        String functionName = this.getClass().getCanonicalName() + "." + shardInfoProvider.shardName(shardId) + ".operation." + function;
         Timer.Context time = metricRegistry.timer(functionName).time();
         try {
             return t.get();
