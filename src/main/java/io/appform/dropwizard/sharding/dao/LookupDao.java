@@ -36,7 +36,9 @@ import org.hibernate.LockMode;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
 import org.hibernate.criterion.DetachedCriteria;
+import org.hibernate.criterion.Projections;
 import org.hibernate.criterion.Restrictions;
+import org.hibernate.query.Query;
 
 import java.lang.reflect.Field;
 import java.util.*;
@@ -116,6 +118,12 @@ public class LookupDao<T> implements ShardedDao<T> {
             return list(criteria.getExecutableCriteria(currentSession()));
         }
 
+        long count(DetachedCriteria criteria) {
+            return  (long)criteria.getExecutableCriteria(currentSession())
+                    .setProjection(Projections.rowCount())
+                    .uniqueResult();
+        }
+
         /**
          * Delete an object
          */
@@ -127,6 +135,12 @@ public class LookupDao<T> implements ShardedDao<T> {
                         })
                         .orElse(false);
 
+        }
+
+        public int update(final UpdateOperationMeta updateOperationMeta) {
+            Query query = currentSession().createNamedQuery(updateOperationMeta.getQueryName());
+            updateOperationMeta.getParams().forEach(query::setParameter);
+            return query.executeUpdate();
         }
     }
 
@@ -252,6 +266,12 @@ public class LookupDao<T> implements ShardedDao<T> {
         return executeTracked(()->updateImpl(id, dao::get, updater, dao), shardId, "update");
     }
 
+    public int updateUsingQuery(String id, UpdateOperationMeta updateOperationMeta) {
+        int shardId = shardCalculator.shardId(id);
+        LookupDaoPriv dao = daos.get(shardId);
+        return Transactions.execute(dao.sessionFactory, false, dao::update, updateOperationMeta);
+    }
+
     private boolean updateImpl(String id, Function<String, T> getter, Function<Optional<T>, T> updater, LookupDaoPriv dao) {
         try {
             return Transactions.<T, String, Boolean>execute(dao.sessionFactory, true, getter, id, entity -> {
@@ -302,6 +322,22 @@ public class LookupDao<T> implements ShardedDao<T> {
             }
         }
         return results;
+    }
+
+    /**
+     * Queries using the specified criteria across all shards and returns the counts of rows satisfying the criteria.
+     * <b>Note:</b> This method runs the query serially and it's usage is not recommended.
+     * @param criteria The select criteria
+     * @return List of counts in each shard
+     */
+    public List<Long> count(DetachedCriteria criteria) {
+        return daos.stream().map(dao -> {
+            try {
+                return Transactions.execute(dao.sessionFactory, true, dao::count, criteria);
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        }).collect(Collectors.toList());
     }
 
     /**
@@ -427,6 +463,16 @@ public class LookupDao<T> implements ShardedDao<T> {
             });
         }
 
+        public<U> LockedContext<T> updateUsingQuery(RelationalDao<U> relationalDao, UpdateOperationMeta updateOperationMeta) {
+            return apply(parent-> {
+                try {
+                    relationalDao.updateUsingQuery(this, updateOperationMeta);
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
+                return null;
+            });
+        }
 
         public<U> LockedContext<T> update(RelationalDao<U> relationalDao, Object id, Function<U, U> handler) {
             return apply(parent-> {

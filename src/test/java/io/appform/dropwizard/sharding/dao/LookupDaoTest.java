@@ -19,6 +19,7 @@ package io.appform.dropwizard.sharding.dao;
 
 import com.codahale.metrics.MetricRegistry;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import io.appform.dropwizard.sharding.ShardInfoProvider;
 import io.appform.dropwizard.sharding.dao.testdata.entities.Audit;
@@ -29,6 +30,7 @@ import io.appform.dropwizard.sharding.sharding.BalancedShardManager;
 import io.appform.dropwizard.sharding.sharding.ShardManager;
 import io.appform.dropwizard.sharding.sharding.impl.ConsistentHashBucketIdExtractor;
 import io.appform.dropwizard.sharding.utils.ShardCalculator;
+import lombok.val;
 import org.hibernate.SessionFactory;
 import org.hibernate.boot.registry.StandardServiceRegistry;
 import org.hibernate.boot.registry.StandardServiceRegistryBuilder;
@@ -42,6 +44,7 @@ import org.junit.Test;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 import static org.junit.Assert.*;
 
@@ -195,6 +198,49 @@ public class LookupDaoTest {
         assertEquals(2, results.size());
     }
 
+    @Test
+    public void testUpdateUsingNamedQueryRowUpdated() throws Exception {
+        val id = UUID.randomUUID().toString();
+        val testEntity = TestEntity.builder()
+                .externalId(id)
+                .text(UUID.randomUUID().toString())
+                .build();
+        lookupDao.save(testEntity);
+
+        val newText = UUID.randomUUID().toString();
+        int rowsUpdated = lookupDao.updateUsingQuery(id, UpdateOperationMeta.builder()
+                .queryName("testTextUpdateQuery")
+                .params(ImmutableMap.of("externalId", id,
+                        "text", newText))
+                .build());
+        assertEquals(1, rowsUpdated);
+
+        val persistedEntity = lookupDao.get(id).orElse(null);
+        assertNotNull(persistedEntity);
+        assertEquals(newText, persistedEntity.getText());
+    }
+
+    @Test
+    public void testUpdateUsingNamedQueryNoRowUpdated() throws Exception {
+        val id = UUID.randomUUID().toString();
+        val testEntity = TestEntity.builder()
+                .externalId(id)
+                .text(UUID.randomUUID().toString())
+                .build();
+        lookupDao.save(testEntity);
+
+        val newText = UUID.randomUUID().toString();
+        int rowsUpdated = lookupDao.updateUsingQuery(id, UpdateOperationMeta.builder()
+                .queryName("testTextUpdateQuery")
+                .params(ImmutableMap.of("externalId", UUID.randomUUID().toString(),
+                        "text", newText))
+                .build());
+        assertEquals(0, rowsUpdated);
+
+        val persistedEntity = lookupDao.get(id).orElse(null);
+        assertNotNull(persistedEntity);
+        assertEquals(testEntity.getText(), persistedEntity.getText());
+    }
 
     @Test
     public void testSaveInParentBucket() throws Exception {
@@ -304,5 +350,38 @@ public class LookupDaoTest {
         Assert.assertTrue(lookupDao.delete("testId"));
         Assert.assertNull(lookupDao.get("testId")
                                   .orElse(null));
+    }
+
+    @Test
+    public void testCount() throws Exception {
+        DetachedCriteria criteria = DetachedCriteria.forClass(TestEntity.class)
+                .add(Restrictions.eq("text", "TEST_TYPE"));
+
+        Assert.assertEquals(
+                0L,
+                (long)lookupDao.count(criteria).stream().reduce(0L, Long::sum)
+        );
+
+        TestEntity testEntity = TestEntity.builder()
+                .externalId("testId2")
+                .text("TEST_TYPE")
+                .build();
+        lookupDao.save(testEntity);
+
+        testEntity.setExternalId("testId3");
+        lookupDao.save(testEntity);
+
+        Assert.assertEquals(
+                2L,
+                (long)lookupDao.count(criteria).stream().reduce(0L, Long::sum)
+        );
+
+
+        lookupDao.delete("testId2");
+        Assert.assertEquals(
+                1L,
+                (long)lookupDao.count(criteria).stream().reduce(0L, Long::sum)
+        );
+
     }
 }
