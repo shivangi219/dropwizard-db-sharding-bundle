@@ -153,6 +153,26 @@ The project dependencies are:
 </dependency>
 ```
 
+Set the Number of Shards property by setting Java property while starting the application.
+
+### Example:
+
+- Initiating Sharding Bundle with namespace
+
+```
+BalancedDBShardingBundle<Configuration> dbShardingBundle = new BalancedDBShardingBundle<Configuration>(
+        "your_namespace", // This is optional
+        List.of("com.example.server.core.entities")
+      ) {
+            @Override
+            protected ShardedHibernateFactory getConfig(Configuration appConfig) {
+                return appConfig.getShards();
+            }
+    };
+```
+
+While running your application, ensure to set `-Dyour_namespace.db.shards=32` property. By default `db.shards=2`
+
 # NOTE
 
 - Package and group id has changed from `io.dropwizard.sharding` to `io.appfrom.dropwizard.sharding` from 1.3.12-3.
