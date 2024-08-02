@@ -98,7 +98,7 @@ public abstract class DBShardingBundleBase<T extends Configuration> implements C
     @Getter
     private int numShards;
     @Getter
-    private ShardingBundleOptions shardingOptions;
+    private ShardingBundleOptions shardingOptions = new ShardingBundleOptions();
 
     private ShardInfoProvider shardInfoProvider;
 
