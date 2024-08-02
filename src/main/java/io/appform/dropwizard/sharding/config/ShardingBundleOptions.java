@@ -13,7 +13,7 @@ public class ShardingBundleOptions {
     private boolean skipReadOnlyTransaction = false;
 
     @Builder.Default
-    private boolean encryptionSupport = false;
+    private boolean encryptionSupportEnabled = false;
 
     private String encryptionAlgorithm;
 

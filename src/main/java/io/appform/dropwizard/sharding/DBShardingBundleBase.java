@@ -164,7 +164,7 @@ public abstract class DBShardingBundleBase<T extends Configuration> implements C
                 blacklistingStore,
                 shardManager);
         //Encryption Support through jasypt-hibernate5
-        if(shardingOptions.isEncryptionSupport()) {
+        if(shardingOptions.isEncryptionSupportEnabled()) {
             Preconditions.checkArgument(shardingOptions.getEncryptionIv().length() == 16, "Encryption IV Should be 16 bytes long");
             StandardPBEStringEncryptor strongEncryptor = new StandardPBEStringEncryptor();
             HibernatePBEEncryptorRegistry encryptorRegistry = HibernatePBEEncryptorRegistry.getInstance();
