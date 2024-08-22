@@ -148,6 +148,7 @@ public class MultiTenantLookupDaoTest {
 
     assertTrue(lookupDao.exists("TENANT1", "testId"));
     assertFalse(lookupDao.exists("TENANT1", "testId1"));
+    assertFalse(lookupDao.exists("TENANT2", "testId"));
     Optional<TestEntity> result = lookupDao.get("TENANT1", "testId");
     assertEquals("Some Text",
         result.get()
