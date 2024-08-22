@@ -19,6 +19,8 @@ package io.appform.dropwizard.sharding.utils;
 
 import io.appform.dropwizard.sharding.sharding.BucketIdExtractor;
 import io.appform.dropwizard.sharding.sharding.ShardManager;
+import java.util.Collections;
+import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -28,16 +30,29 @@ import lombok.extern.slf4j.Slf4j;
 public class ShardCalculator<T> {
 
     private final ShardManager shardManager;
+    private final Map<String, ShardManager> shardManagers;
     private final BucketIdExtractor<T> extractor;
 
     public ShardCalculator(ShardManager shardManager, BucketIdExtractor<T> extractor) {
         this.shardManager = shardManager;
+        this.shardManagers = Collections.emptyMap();
+        this.extractor = extractor;
+    }
+
+    public ShardCalculator(Map<String, ShardManager> shardManagers, BucketIdExtractor<T> extractor) {
+        this.shardManagers = shardManagers;
+        this.shardManager = null;
         this.extractor = extractor;
     }
 
     public int shardId(T key) {
         int bucketId = extractor.bucketId(key);
         return shardManager.shardForBucket(bucketId);
+    }
+
+    public int shardId(String tenantId, T key) {
+        int bucketId = extractor.bucketId(tenantId, key);
+        return shardManagers.get(tenantId).shardForBucket(bucketId);
     }
 
     public boolean isOnValidShard(T key) {
