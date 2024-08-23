@@ -21,7 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.google.common.collect.Maps;
-import io.appform.dropwizard.sharding.dao.RelationalDao;
+import io.appform.dropwizard.sharding.dao.MultiTenantRelationalDao;
 import io.appform.dropwizard.sharding.dao.WrapperDao;
 import io.appform.dropwizard.sharding.dao.interceptors.TimerObserver;
 import io.appform.dropwizard.sharding.dao.listeners.LoggingListener;
@@ -53,8 +53,8 @@ public abstract class MultiTenantDBShardingBundleTestBase extends MultiTenantBun
         bundle.registerObserver(new TimerObserver());
         bundle.registerListener(new LoggingListener());
         WrapperDao<Order, OrderDao> tenant1Dao = bundle.createWrapperDao("TENANT1", OrderDao.class);
-        RelationalDao<Order> tenant1RelDao = bundle.createRelatedObjectDao("TENANT1", Order.class);
-        RelationalDao<OrderItem> tenant1OrderItemDao = bundle.createRelatedObjectDao("TENANT1", OrderItem.class);
+        MultiTenantRelationalDao<Order> tenant1RelDao = bundle.createRelatedObjectDao(Order.class);
+        MultiTenantRelationalDao<OrderItem> tenant1OrderItemDao = bundle.createRelatedObjectDao(OrderItem.class);
 
         final String customer = "customer1";
 
@@ -77,21 +77,21 @@ public abstract class MultiTenantDBShardingBundleTestBase extends MultiTenantBun
         Order result = tenant1Dao.forParent(customer).get(saveId);
         assertEquals(saveResult.getId(), result.getId());
         assertEquals(saveResult.getId(), result.getId());
-        Optional<Order> newOrder = tenant1RelDao.save("customer1", order);
+        Optional<Order> newOrder = tenant1RelDao.save("TENANT1", "customer1", order);
         assertTrue(newOrder.isPresent());
         long generatedId = newOrder.get().getId();
-        Optional<Order> checkOrder = tenant1RelDao.get("customer1", generatedId);
+        Optional<Order> checkOrder = tenant1RelDao.get("TENANT1","customer1", generatedId);
         assertEquals(100, checkOrder.get().getAmount());
-        tenant1RelDao.update("customer1", saveId, foundOrder -> {
+        tenant1RelDao.update("TENANT1","customer1", saveId, foundOrder -> {
             foundOrder.setAmount(200);
             return foundOrder;
         });
-        Optional<Order> modifiedOrder = tenant1RelDao.get("customer1", saveId);
+        Optional<Order> modifiedOrder = tenant1RelDao.get("TENANT1","customer1", saveId);
         assertEquals(200, modifiedOrder.get().getAmount());
         assertTrue(checkOrder.isPresent());
         assertEquals(newOrder.get().getId(), checkOrder.get().getId());
         Map<String, Object> blah = Maps.newHashMap();
-        tenant1RelDao.get("customer1", generatedId, foundOrder -> {
+        tenant1RelDao.get("TENANT1","customer1", generatedId, foundOrder -> {
             if (null == foundOrder) {
                 return Collections.emptyList();
             }
@@ -100,12 +100,12 @@ public abstract class MultiTenantDBShardingBundleTestBase extends MultiTenantBun
             return itemList;
         });
         assertEquals(2, blah.get("count"));
-        List<OrderItem> orderItems = tenant1OrderItemDao.select("customer1",
+        List<OrderItem> orderItems = tenant1OrderItemDao.select("TENANT1","customer1",
                 DetachedCriteria.forClass(OrderItem.class)
                         .createAlias("order", "o")
                         .add(Restrictions.eq("o.orderId", "OD00001")), 0, 10);
         assertEquals(2, orderItems.size());
-        tenant1OrderItemDao.update("customer1",
+        tenant1OrderItemDao.update("TENANT1","customer1",
                 DetachedCriteria.forClass(OrderItem.class)
                         .createAlias("order", "o")
                         .add(Restrictions.eq("o.orderId", "OD00001")),
@@ -114,7 +114,7 @@ public abstract class MultiTenantDBShardingBundleTestBase extends MultiTenantBun
                         .order(item.getOrder())
                         .name("Item AA")
                         .build());
-        orderItems = tenant1OrderItemDao.select("customer1",
+        orderItems = tenant1OrderItemDao.select("TENANT1","customer1",
                 DetachedCriteria.forClass(OrderItem.class)
                         .createAlias("order", "o")
                         .add(Restrictions.eq("o.orderId", "OD00001")), 0, 10);
