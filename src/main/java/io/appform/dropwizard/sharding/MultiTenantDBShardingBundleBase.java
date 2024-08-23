@@ -33,7 +33,6 @@ import io.appform.dropwizard.sharding.dao.MultiTenantCacheableLookupDao;
 import io.appform.dropwizard.sharding.dao.MultiTenantCacheableRelationalDao;
 import io.appform.dropwizard.sharding.dao.MultiTenantLookupDao;
 import io.appform.dropwizard.sharding.dao.MultiTenantRelationalDao;
-import io.appform.dropwizard.sharding.dao.RelationalDao;
 import io.appform.dropwizard.sharding.dao.WrapperDao;
 import io.appform.dropwizard.sharding.filters.TransactionFilter;
 import io.appform.dropwizard.sharding.healthcheck.HealthCheckManager;
@@ -329,14 +328,12 @@ public abstract class MultiTenantDBShardingBundleBase<T extends Configuration> i
 
 
   public <EntityType, T extends Configuration>
-  RelationalDao<EntityType> createRelatedObjectDao(String tenantId, Class<EntityType> clazz) {
-    Preconditions.checkArgument(this.sessionFactories.containsKey(tenantId),
-        "Unknown tenant: " + tenantId);
-    return new RelationalDao<>(this.sessionFactories.get(tenantId), clazz,
-        new ShardCalculator<>(this.shardManagers.get(tenantId),
-            new ConsistentHashBucketIdExtractor<>(this.shardManagers.get(tenantId))),
-        this.shardingOptions.get(tenantId),
-        shardInfoProviders.get(tenantId),
+  MultiTenantRelationalDao<EntityType> createRelatedObjectDao(Class<EntityType> clazz) {
+    return new MultiTenantRelationalDao<>(this.sessionFactories, clazz,
+        new ShardCalculator<>(this.shardManagers,
+            new ConsistentHashBucketIdExtractor<>(this.shardManagers)),
+        this.shardingOptions,
+        shardInfoProviders,
         rootObserver);
   }
 
