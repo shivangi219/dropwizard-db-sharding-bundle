@@ -29,10 +29,10 @@ import io.appform.dropwizard.sharding.caching.RelationalCache;
 import io.appform.dropwizard.sharding.config.MetricConfig;
 import io.appform.dropwizard.sharding.config.MultiTenantShardedHibernateFactory;
 import io.appform.dropwizard.sharding.config.ShardingBundleOptions;
-import io.appform.dropwizard.sharding.dao.CacheableLookupDao;
-import io.appform.dropwizard.sharding.dao.CacheableRelationalDao;
 import io.appform.dropwizard.sharding.dao.MultiTenantCacheableLookupDao;
+import io.appform.dropwizard.sharding.dao.MultiTenantCacheableRelationalDao;
 import io.appform.dropwizard.sharding.dao.MultiTenantLookupDao;
+import io.appform.dropwizard.sharding.dao.MultiTenantRelationalDao;
 import io.appform.dropwizard.sharding.dao.RelationalDao;
 import io.appform.dropwizard.sharding.dao.WrapperDao;
 import io.appform.dropwizard.sharding.filters.TransactionFilter;
@@ -166,25 +166,28 @@ public abstract class MultiTenantDBShardingBundleBase<T extends Configuration> i
             new StringFixedIvGenerator(shardingOption.getEncryptionIv()));
         encryptorRegistry.registerPBEStringEncryptor("encryptedString", strongEncryptor);
       }
-      List<HibernateBundle<T>> shardedBundle = IntStream.range(0, shardConfig.getShards().size()).mapToObj(
-          shard ->
-              new HibernateBundle<T>(initialisedEntities, new SessionFactoryFactory()) {
-                @Override
-                protected String name() {
-                  return shardInfoProvider.shardName(shard);
-                }
+      List<HibernateBundle<T>> shardedBundle = IntStream.range(0, shardConfig.getShards().size())
+          .mapToObj(
+              shard ->
+                  new HibernateBundle<T>(initialisedEntities, new SessionFactoryFactory()) {
+                    @Override
+                    protected String name() {
+                      return shardInfoProvider.shardName(shard);
+                    }
 
-                @Override
-                public PooledDataSourceFactory getDataSourceFactory(T t) {
-                  return shardConfig.getShards().get(shard);
-                }
-              }).collect(Collectors.toList());
-      shardedBundle.forEach(hibernateBundle -> {try {
-        hibernateBundle.run(configuration, environment);
-      } catch (Exception e) {
-        log.error("Error initializing db sharding bundle for tenant {}", tenantId, e);
-        throw new RuntimeException(e);
-      }});
+                    @Override
+                    public PooledDataSourceFactory getDataSourceFactory(T t) {
+                      return shardConfig.getShards().get(shard);
+                    }
+                  }).collect(Collectors.toList());
+      shardedBundle.forEach(hibernateBundle -> {
+        try {
+          hibernateBundle.run(configuration, environment);
+        } catch (Exception e) {
+          log.error("Error initializing db sharding bundle for tenant {}", tenantId, e);
+          throw new RuntimeException(e);
+        }
+      });
       this.shardBundles.put(tenantId, shardedBundle);
       val sessionFactory = shardedBundle.stream().map(HibernateBundle::getSessionFactory)
           .collect(Collectors.toList());
@@ -339,48 +342,39 @@ public abstract class MultiTenantDBShardingBundleBase<T extends Configuration> i
 
 
   public <EntityType, T extends Configuration>
-  CacheableRelationalDao<EntityType> createRelatedObjectDao(String tenantId,
-      Class<EntityType> clazz,
-      RelationalCache<EntityType> cacheManager) {
-    Preconditions.checkArgument(this.sessionFactories.containsKey(tenantId),
-        "Unknown tenant: " + tenantId);
-    return new CacheableRelationalDao<>(this.sessionFactories.get(tenantId),
+  MultiTenantCacheableRelationalDao<EntityType> createRelatedObjectDao(Class<EntityType> clazz,
+      Map<String, RelationalCache<EntityType>> cacheManager) {
+    return new MultiTenantCacheableRelationalDao<>(this.sessionFactories,
         clazz,
-        new ShardCalculator<>(this.shardManagers.get(tenantId),
-            new ConsistentHashBucketIdExtractor<>(this.shardManagers.get(tenantId))),
+        new ShardCalculator<>(this.shardManagers,
+            new ConsistentHashBucketIdExtractor<>(this.shardManagers)),
         cacheManager,
-        this.shardingOptions.get(tenantId),
-        shardInfoProviders.get(tenantId),
+        this.shardingOptions,
+        shardInfoProviders,
         rootObserver);
   }
 
   public <EntityType, T extends Configuration>
-  RelationalDao<EntityType> createRelatedObjectDao(String tenantId,
-      Class<EntityType> clazz,
+  MultiTenantRelationalDao<EntityType> createRelatedObjectDao(Class<EntityType> clazz,
       BucketIdExtractor<String> bucketIdExtractor) {
-    Preconditions.checkArgument(this.sessionFactories.containsKey(tenantId),
-        "Unknown tenant: " + tenantId);
-    return new RelationalDao<>(this.sessionFactories.get(tenantId),
+    return new MultiTenantRelationalDao<>(this.sessionFactories,
         clazz,
-        new ShardCalculator<>(this.shardManagers.get(tenantId), bucketIdExtractor),
-        this.shardingOptions.get(tenantId),
-        shardInfoProviders.get(tenantId),
+        new ShardCalculator<>(this.shardManagers, bucketIdExtractor),
+        this.shardingOptions,
+        shardInfoProviders,
         rootObserver);
   }
 
   public <EntityType, T extends Configuration>
-  CacheableRelationalDao<EntityType> createRelatedObjectDao(String tenantId,
-      Class<EntityType> clazz,
+  MultiTenantCacheableRelationalDao<EntityType> createRelatedObjectDao(Class<EntityType> clazz,
       BucketIdExtractor<String> bucketIdExtractor,
-      RelationalCache<EntityType> cacheManager) {
-    Preconditions.checkArgument(this.sessionFactories.containsKey(tenantId),
-        "Unknown tenant: " + tenantId);
-    return new CacheableRelationalDao<>(this.sessionFactories.get(tenantId),
+      Map<String, RelationalCache<EntityType>> cacheManager) {
+    return new MultiTenantCacheableRelationalDao<>(this.sessionFactories,
         clazz,
-        new ShardCalculator<>(this.shardManagers.get(tenantId), bucketIdExtractor),
+        new ShardCalculator<>(this.shardManagers, bucketIdExtractor),
         cacheManager,
-        this.shardingOptions.get(tenantId),
-        shardInfoProviders.get(tenantId),
+        this.shardingOptions,
+        shardInfoProviders,
         rootObserver);
   }
 
