@@ -94,245 +94,15 @@ import org.hibernate.criterion.Restrictions;
 @Slf4j
 public class MultiTenantLookupDao<T> implements ShardedDao<T> {
 
-  /**
-   * The {@code LookupDaoPriv} class is a private implementation of a data access object (DAO)
-   * responsible for performing database operations related to a specific entity type {@code T}. It
-   * extends {@link AbstractDAO} to leverage common database access functionality provided by the
-   * parent class.
-   *
-   * <p>Instances of this class are typically created within a broader context and encapsulate
-   * database access operations specific to a particular entity type. These operations include
-   * retrieval, modification, querying, and deletion of records associated with the entity.
-   *
-   * <p>It uses a Hibernate {@link SessionFactory} to manage database sessions and perform
-   * operations within the scope of a session.
-   */
-  private final class LookupDaoPriv extends AbstractDAO<T> {
-
-    /**
-     * The Hibernate {@code SessionFactory} used for database operations.
-     */
-    private final SessionFactory sessionFactory;
-
-    /**
-     * Constructs a new {@code LookupDaoPriv} instance with the provided Hibernate
-     * {@link SessionFactory}. This constructor initializes the DAO with the session factory, which
-     * will be used for managing database operations.
-     *
-     * @param sessionFactory The Hibernate {@code SessionFactory} for database access.
-     */
-    public LookupDaoPriv(SessionFactory sessionFactory) {
-      super(sessionFactory);
-      this.sessionFactory = sessionFactory;
-    }
-
-    /**
-     * Retrieves an entity from the shard based on the provided lookup key. The entity is retrieved
-     * without any locking applied.
-     *
-     * @param lookupKey The unique lookup key identifying the entity.
-     * @return The retrieved entity, or null if the entity is not found.
-     */
-    T get(String lookupKey) {
-      return getLocked(lookupKey, x -> x, LockMode.READ);
-    }
-
-    T get(String lookupKey, UnaryOperator<Criteria> criteriaUpdater) {
-      return getLocked(lookupKey, criteriaUpdater, LockMode.READ);
-    }
-
-    /**
-     * Get an element from the shard.
-     *
-     * @param lookupKey       Id of the object
-     * @param criteriaUpdater Function to update criteria to add additional params
-     * @return Extracted element or null if not found.
-     */
-    T getLocked(String lookupKey, UnaryOperator<Criteria> criteriaUpdater, LockMode lockMode) {
-      Criteria criteria = criteriaUpdater.apply(currentSession()
-          .createCriteria(entityClass)
-          .add(Restrictions.eq(keyField.getName(), lookupKey))
-          .setLockMode(lockMode));
-      return uniqueResult(criteria);
-    }
-
-    /**
-     * Retrieves an entity from the shard with a pessimistic write lock applied. This method is
-     * typically used for write operations that require exclusive access to the entity.
-     *
-     * @param lookupKey The unique lookup key identifying the entity.
-     * @return The retrieved entity, or null if the entity is not found.
-     */
-    T getLockedForWrite(String lookupKey) {
-      return getLocked(lookupKey, LockModeType.PESSIMISTIC_WRITE);
-    }
-
-    /**
-     * Retrieves an entity from the shard with the specified lock mode applied. The entity is locked
-     * with the specified lock mode to control concurrent access.
-     *
-     * @param lookupKey The unique lookup key identifying the entity.
-     * @param lockMode  The type of lock to be applied (e.g., NONE, PESSIMISTIC_WRITE).
-     * @return The retrieved entity, or null if the entity is not found.
-     * @throws org.hibernate.NonUniqueResultException if database returns more than 1 rows for
-     *                                                {@code lookupKey}
-     */
-    T getLocked(String lookupKey, LockModeType lockMode) {
-      val session = currentSession();
-      val builder = session.getCriteriaBuilder();
-      val criteria = builder.createQuery(entityClass);
-      val root = criteria.from(entityClass);
-      criteria.where(equalityFilter(builder, root, keyField.getName(), lookupKey));
-      return uniqueResult(session.createQuery(criteria).setLockMode(lockMode));
-    }
-
-    /**
-     * Saves an entity to the shard. The entity is persisted in the database, and any generated
-     * fields are returned as part of the augmented entity.
-     *
-     * @param entity The entity to be saved to the shard.
-     * @return The augmented entity with generated fields populated.
-     */
-    T save(T entity) {
-      return persist(entity);
-    }
-
-    /**
-     * Updates the state of an entity in the shard. The entity is first detached from the current
-     * session to ensure that updates are performed. The updated entity is then associated with the
-     * session for synchronization.
-     *
-     * @param entity The entity to be updated in the shard.
-     */
-    void update(T entity) {
-      currentSession().evict(entity); //Detach .. otherwise update is a no-op
-      currentSession().update(entity);
-    }
-
-    /**
-     * Runs a query inside the shard based on the provided {@code DetachedCriteria} and returns a
-     * list of matching entities.
-     *
-     * @param criteria The selection criteria to be applied to the query.
-     * @return A list of matching entities or an empty list if none are found.
-     */
-    List<T> select(DetachedCriteria criteria) {
-      return list(criteria.getExecutableCriteria(currentSession()));
-    }
-
-    /**
-     * Run a query inside this shard and return the matching list.
-     *
-     * @param criteria selection criteria to be applied.
-     * @return List of elements or empty list if none found
-     */
-    @SuppressWarnings("rawtypes")
-    List run(DetachedCriteria criteria) {
-      return criteria.getExecutableCriteria(currentSession())
-          .list();
-    }
-
-    List<T> select(SelectParam selectParam) {
-      if (selectParam.criteria != null) {
-        val criteria = selectParam.criteria.getExecutableCriteria(currentSession());
-        if (null != selectParam.getStart()) {
-          criteria.setFirstResult(selectParam.start);
-        }
-        if (null != selectParam.getNumRows()) {
-          criteria.setMaxResults(selectParam.numRows);
-        }
-        return list(criteria);
-      }
-      val query = InternalUtils.createQuery(currentSession(), entityClass, selectParam.querySpec);
-      if (null != selectParam.getStart()) {
-        query.setFirstResult(selectParam.start);
-      }
-      if (null != selectParam.getNumRows()) {
-        query.setMaxResults(selectParam.numRows);
-      }
-      return list(query);
-    }
-
-    /**
-     * Runs a query inside the shard based on the provided {@code QuerySpec} and returns a list of
-     * matching entities.
-     *
-     * @param querySpec The query specification that defines the criteria and conditions.
-     * @return A list of matching entities or an empty list if none are found.
-     */
-    List<T> select(final QuerySpec<T, T> querySpec) {
-      val session = currentSession();
-      val builder = session.getCriteriaBuilder();
-      val criteria = builder.createQuery(entityClass);
-      val root = criteria.from(entityClass);
-      querySpec.apply(root, criteria, builder);
-      return list(session.createQuery(criteria));
-    }
-
-    /**
-     * Counts the number of entities that match the provided {@code DetachedCriteria}. The count is
-     * based on the selection criteria specified in the query.
-     *
-     * @param criteria The selection criteria to be applied for counting.
-     * @return The number of matching entities.
-     */
-    long count(DetachedCriteria criteria) {
-      return (long) criteria.getExecutableCriteria(currentSession())
-          .setProjection(Projections.rowCount())
-          .uniqueResult();
-    }
-
-    /**
-     * Deletes an entity from the shard based on the provided ID. The entity is retrieved and locked
-     * with a pessimistic write lock before deletion to ensure exclusive access.
-     *
-     * @param id The unique ID of the entity to be deleted.
-     * @return {@code true} if the entity is successfully deleted, {@code false} if it does not
-     * exist.
-     */
-    boolean delete(String id) {
-      return Optional.ofNullable(getLocked(id, LockModeType.PESSIMISTIC_WRITE))
-          .map(object -> {
-            currentSession().delete(object);
-            return true;
-          })
-          .orElse(false);
-
-    }
-
-
-    /**
-     * Executes an update operation within the shard based on the provided
-     * {@code UpdateOperationMeta} metadata. This method is used for performing batch updates or
-     * modifications to entities matching specific criteria.
-     *
-     * <p>The update operation is defined by a named query associated with the shard, as specified
-     * in the {@code UpdateOperationMeta} object. Any parameters required for the query are provided
-     * in the metadata, and the query is executed within the current database session.
-     *
-     * @param updateOperationMeta The metadata defining the update operation, including the named
-     *                            query and parameters.
-     * @return The number of entities affected by the update operation.
-     */
-    public int update(final UpdateOperationMeta updateOperationMeta) {
-      val query = currentSession().createNamedQuery(updateOperationMeta.getQueryName());
-      updateOperationMeta.getParams().forEach(query::setParameter);
-      return query.executeUpdate();
-    }
-  }
-
+  private final Map<String, List<SessionFactory>> sessionFactories;
   private final Map<String, List<LookupDaoPriv>> daos = Maps.newHashMap();
   private final Class<T> entityClass;
-
   @Getter
   private final ShardCalculator<String> shardCalculator;
-
   @Getter
   private final Map<String, ShardingBundleOptions> shardingOptions;
   private final Field keyField;
-
   private final Map<String, TransactionExecutor> transactionExecutor = Maps.newHashMap();
-
   private final Map<String, ShardInfoProvider> shardInfoProviders;
   private final TransactionObserver observer;
 
@@ -364,6 +134,7 @@ public class MultiTenantLookupDao<T> implements ShardedDao<T> {
       Map<String, ShardingBundleOptions> shardingOptions,
       final Map<String, ShardInfoProvider> shardInfoProviders,
       final TransactionObserver observer) {
+    this.sessionFactories = sessionFactories;
     sessionFactories.forEach((tenantId, factories) -> {
       daos.put(tenantId, factories.stream().map(LookupDaoPriv::new).collect(Collectors.toList()));
     });
@@ -428,6 +199,7 @@ public class MultiTenantLookupDao<T> implements ShardedDao<T> {
    * @throws Exception if backing dao throws
    */
   public <U> U get(String tenantId, String key, Function<T, U> handler) throws Exception {
+    Preconditions.checkArgument(daos.containsKey(tenantId), "Unknown tenant: " + tenantId);
     int shardId = shardCalculator.shardId(tenantId, key);
     LookupDaoPriv dao = daos.get(tenantId).get(shardId);
     val opContext = GetByLookupKey.<T, U>builder()
@@ -443,6 +215,7 @@ public class MultiTenantLookupDao<T> implements ShardedDao<T> {
   public <U> U get(String tenantId, String key, UnaryOperator<Criteria> criteriaUpdater,
       Function<T, U> handler)
       throws Exception {
+    Preconditions.checkArgument(daos.containsKey(tenantId), "Unknown tenant: " + tenantId);
     int shardId = shardCalculator.shardId(tenantId, key);
     LookupDaoPriv dao = daos.get(tenantId).get(shardId);
     val opContext = GetByLookupKey.<T, U>builder()
@@ -497,6 +270,7 @@ public class MultiTenantLookupDao<T> implements ShardedDao<T> {
    * @throws Exception if backing dao throws
    */
   public <U> U save(String tenantId, T entity, Function<T, U> handler) throws Exception {
+    Preconditions.checkArgument(daos.containsKey(tenantId), "Unknown tenant: " + tenantId);
     final String key = keyField.get(entity).toString();
     int shardId = shardCalculator.shardId(tenantId, key);
     log.debug("Saving entity of type {} with key {} to shard {}", entityClass.getSimpleName(), key,
@@ -515,6 +289,7 @@ public class MultiTenantLookupDao<T> implements ShardedDao<T> {
       String id,
       UnaryOperator<T> updater,
       Supplier<T> entityGenerator) {
+    Preconditions.checkArgument(daos.containsKey(tenantId), "Unknown tenant: " + tenantId);
     val shardId = shardCalculator.shardId(tenantId, id);
     val dao = daos.get(tenantId).get(shardId);
     val opContext = CreateOrUpdateByLookupKey.<T>builder()
@@ -533,7 +308,6 @@ public class MultiTenantLookupDao<T> implements ShardedDao<T> {
         opContext, shardId));
   }
 
-
   /**
    * Updates an entity. For this update, first a lock is taken on database on selected row (using
    * <i>for update</i> semantics) and {@code updater} is applied on the retrieved entity. It is
@@ -546,6 +320,7 @@ public class MultiTenantLookupDao<T> implements ShardedDao<T> {
    * @return True if the update was successful, false otherwise.
    */
   public boolean updateInLock(String tenantId, String id, Function<Optional<T>, T> updater) {
+    Preconditions.checkArgument(daos.containsKey(tenantId), "Unknown tenant: " + tenantId);
     int shardId = shardCalculator.shardId(tenantId, id);
     LookupDaoPriv dao = daos.get(tenantId).get(shardId);
     return updateImpl(tenantId, id, dao::getLockedForWrite, updater, shardId);
@@ -566,6 +341,7 @@ public class MultiTenantLookupDao<T> implements ShardedDao<T> {
    * @return {@code true} if the entity is successfully updated, {@code false} if it does not exist.
    */
   public boolean update(String tenantId, String id, Function<Optional<T>, T> updater) {
+    Preconditions.checkArgument(daos.containsKey(tenantId), "Unknown tenant: " + tenantId);
     int shardId = shardCalculator.shardId(tenantId, id);
     LookupDaoPriv dao = daos.get(tenantId).get(shardId);
     return updateImpl(tenantId, id, dao::get, updater, shardId);
@@ -587,6 +363,7 @@ public class MultiTenantLookupDao<T> implements ShardedDao<T> {
    * @return The number of entities affected by the update operation.
    */
   public int updateUsingQuery(String tenantId, String id, UpdateOperationMeta updateOperationMeta) {
+    Preconditions.checkArgument(daos.containsKey(tenantId), "Unknown tenant: " + tenantId);
     int shardId = shardCalculator.shardId(tenantId, id);
     LookupDaoPriv dao = daos.get(tenantId).get(shardId);
     val opContext = UpdateByQuery.builder()
@@ -621,6 +398,7 @@ public class MultiTenantLookupDao<T> implements ShardedDao<T> {
       Function<String, T> getter,
       Function<Optional<T>, T> mutator,
       int shardId) {
+    Preconditions.checkArgument(daos.containsKey(tenantId), "Unknown tenant: " + tenantId);
     try {
       val dao = daos.get(tenantId).get(shardId);
       val opContext = GetAndUpdateByLookupKey.<T>builder()
@@ -652,6 +430,7 @@ public class MultiTenantLookupDao<T> implements ShardedDao<T> {
    * @throws RuntimeException If an error occurs during entity locking or transaction management.
    */
   public LockedContext<T> lockAndGetExecutor(String tenantId, final String id) {
+    Preconditions.checkArgument(daos.containsKey(tenantId), "Unknown tenant: " + tenantId);
     int shardId = shardCalculator.shardId(tenantId, id);
     LookupDaoPriv dao = daos.get(tenantId).get(shardId);
     return new LockedContext<>(shardId, dao.sessionFactory, () -> dao.getLockedForWrite(id),
@@ -679,6 +458,7 @@ public class MultiTenantLookupDao<T> implements ShardedDao<T> {
    */
   public ReadOnlyContext<T> readOnlyExecutor(String tenantId, String id,
       UnaryOperator<Criteria> criteriaUpdater) {
+    Preconditions.checkArgument(daos.containsKey(tenantId), "Unknown tenant: " + tenantId);
     int shardId = shardCalculator.shardId(tenantId, id);
     LookupDaoPriv dao = daos.get(tenantId).get(shardId);
     return new ReadOnlyContext<>(shardId,
@@ -715,6 +495,7 @@ public class MultiTenantLookupDao<T> implements ShardedDao<T> {
       String id,
       UnaryOperator<Criteria> criteriaUpdater,
       Supplier<Boolean> entityPopulator) {
+    Preconditions.checkArgument(daos.containsKey(tenantId), "Unknown tenant: " + tenantId);
     int shardId = shardCalculator.shardId(tenantId, id);
     LookupDaoPriv dao = daos.get(tenantId).get(shardId);
     return new ReadOnlyContext<>(shardId,
@@ -725,7 +506,6 @@ public class MultiTenantLookupDao<T> implements ShardedDao<T> {
         shardingOptions.get(tenantId).isSkipReadOnlyTransaction(),
         shardInfoProviders.get(tenantId), entityClass, observer);
   }
-
 
   /**
    * Saves an entity to the database and obtains a locked context for further operations.
@@ -742,6 +522,7 @@ public class MultiTenantLookupDao<T> implements ShardedDao<T> {
    */
   public LockedContext<T> saveAndGetExecutor(String tenantId, T entity) {
     String id;
+    Preconditions.checkArgument(daos.containsKey(tenantId), "Unknown tenant: " + tenantId);
     try {
       id = keyField.get(entity).toString();
     } catch (IllegalAccessException e) {
@@ -765,7 +546,8 @@ public class MultiTenantLookupDao<T> implements ShardedDao<T> {
    * @return A list of entities obtained by executing the query criteria on all available shards.
    */
   public List<T> scatterGather(String tenantId, DetachedCriteria criteria) {
-    return IntStream.range(0, daos.size())
+    Preconditions.checkArgument(daos.containsKey(tenantId), "Unknown tenant: " + tenantId);
+    return IntStream.range(0, daos.get(tenantId).size())
         .mapToObj(shardId -> {
           try {
             val dao = daos.get(tenantId).get(shardId);
@@ -799,6 +581,7 @@ public class MultiTenantLookupDao<T> implements ShardedDao<T> {
    * @throws RuntimeException If an error occurs while querying the database.
    */
   public List<T> scatterGather(String tenantId, final QuerySpec<T, T> querySpec) {
+    Preconditions.checkArgument(daos.containsKey(tenantId), "Unknown tenant: " + tenantId);
     return IntStream.range(0, daos.get(tenantId).size())
         .mapToObj(shardId -> {
           try {
@@ -830,6 +613,7 @@ public class MultiTenantLookupDao<T> implements ShardedDao<T> {
    * NOTES: - Do not modify the criteria between subsequent calls - It is important to provide a
    * sort field that is perpetually increasing - Pointer returned can be used to _only_ scroll down
    *
+   * @param tenantId      Tenant id
    * @param inCriteria    The core criteria for the query
    * @param inPointer     Existing {@link ScrollPointer}, should be null at start of a scroll
    *                      session
@@ -844,6 +628,7 @@ public class MultiTenantLookupDao<T> implements ShardedDao<T> {
       final ScrollPointer inPointer,
       final int pageSize,
       @NonNull final String sortFieldName) {
+    Preconditions.checkArgument(daos.containsKey(tenantId), "Unknown tenant: " + tenantId);
     log.trace("Scroll Pointer: {}", inPointer);
     val pointer = inPointer == null ? new ScrollPointer(ScrollPointer.Direction.DOWN) : inPointer;
     Preconditions.checkArgument(pointer.getDirection().equals(ScrollPointer.Direction.DOWN),
@@ -865,7 +650,7 @@ public class MultiTenantLookupDao<T> implements ShardedDao<T> {
    * <p>
    * NOTES: - Do not modify the criteria between subsequent calls - It is important to provide a
    * sort field that is perpetually increasing - Pointer returned can be used to _only_ scroll up
-   *
+   * @param tenantId      Tenant id
    * @param inCriteria    The core criteria for the query
    * @param inPointer     Existing {@link ScrollPointer}, should be null at start of a scroll
    *                      session
@@ -881,6 +666,7 @@ public class MultiTenantLookupDao<T> implements ShardedDao<T> {
       final ScrollPointer inPointer,
       final int pageSize,
       @NonNull final String sortFieldName) {
+    Preconditions.checkArgument(daos.containsKey(tenantId), "Unknown tenant: " + tenantId);
     val pointer = null == inPointer ? new ScrollPointer(ScrollPointer.Direction.UP) : inPointer;
     Preconditions.checkArgument(pointer.getDirection().equals(ScrollPointer.Direction.UP),
         "An up scroll pointer needs to be passed to this method");
@@ -909,6 +695,7 @@ public class MultiTenantLookupDao<T> implements ShardedDao<T> {
    * @throws RuntimeException If an error occurs while querying the database.
    */
   public List<Long> count(String tenantId, DetachedCriteria criteria) {
+    Preconditions.checkArgument(daos.containsKey(tenantId), "Unknown tenant: " + tenantId);
     return IntStream.range(0, daos.get(tenantId).size())
         .mapToObj(shardId -> {
           val dao = daos.get(tenantId).get(shardId);
@@ -952,6 +739,7 @@ public class MultiTenantLookupDao<T> implements ShardedDao<T> {
   @SuppressWarnings("rawtypes")
   public <U> U run(String tenantId, DetachedCriteria criteria,
       Function<Map<Integer, List<T>>, U> translator) {
+    Preconditions.checkArgument(daos.containsKey(tenantId), "Unknown tenant: " + tenantId);
     val output = IntStream.range(0, daos.get(tenantId).size())
         .boxed()
         .collect(Collectors.toMap(Function.identity(), shardId -> {
@@ -981,6 +769,7 @@ public class MultiTenantLookupDao<T> implements ShardedDao<T> {
    * @throws RuntimeException If an error occurs while querying the database.
    */
   public List<T> get(String tenantId, List<String> keys) {
+    Preconditions.checkArgument(daos.containsKey(tenantId), "Unknown tenant: " + tenantId);
     Map<Integer, List<String>> lookupKeysGroupByShards = keys.stream()
         .collect(
             Collectors.groupingBy(key -> shardCalculator.shardId(tenantId, key),
@@ -1002,7 +791,6 @@ public class MultiTenantLookupDao<T> implements ShardedDao<T> {
     }).flatMap(Collection::stream).collect(Collectors.toList());
   }
 
-
   /**
    * Executes a function within a database session on the shard corresponding to the provided ID.
    *
@@ -1019,6 +807,7 @@ public class MultiTenantLookupDao<T> implements ShardedDao<T> {
    *                          executing the handler.
    */
   public <U> U runInSession(String tenantId, String id, Function<Session, U> handler) {
+    Preconditions.checkArgument(daos.containsKey(tenantId), "Unknown tenant: " + tenantId);
     int shardId = shardCalculator.shardId(tenantId, id);
     LookupDaoPriv dao = daos.get(tenantId).get(shardId);
     val opContext = RunInSession.<U>builder()
@@ -1032,6 +821,7 @@ public class MultiTenantLookupDao<T> implements ShardedDao<T> {
   public <U, V> V runInSession(String tenantId,
       BiFunction<Integer, Session, U> sessionHandler,
       Function<Map<Integer, U>, V> translator) {
+    Preconditions.checkArgument(daos.containsKey(tenantId), "Unknown tenant: " + tenantId);
     val output = IntStream.range(0, daos.get(tenantId).size())
         .boxed()
         .collect(Collectors.toMap(Function.identity(), shardId -> {
@@ -1066,6 +856,7 @@ public class MultiTenantLookupDao<T> implements ShardedDao<T> {
    *                          management.
    */
   public boolean delete(String tenantId, String id) {
+    Preconditions.checkArgument(daos.containsKey(tenantId), "Unknown tenant: " + tenantId);
     int shardId = shardCalculator.shardId(tenantId, id);
     val opContext = DeleteByLookupKey.builder()
         .id(id)
@@ -1090,6 +881,45 @@ public class MultiTenantLookupDao<T> implements ShardedDao<T> {
     return this.keyField;
   }
 
+  @SneakyThrows
+  private ScrollResult<T> scrollImpl(String tenantId,
+      final DetachedCriteria inCriteria,
+      final ScrollPointer pointer,
+      final int pageSize,
+      final UnaryOperator<DetachedCriteria> criteriaMutator,
+      final Comparator<ScrollResultItem<T>> comparator,
+      String methodName) {
+    Preconditions.checkArgument(daos.containsKey(tenantId), "Unknown tenant: " + tenantId);
+    val daoIndex = new AtomicInteger();
+    val results = daos.get(tenantId).stream()
+        .flatMap(dao -> {
+          val currIdx = daoIndex.getAndIncrement();
+          val criteria = criteriaMutator.apply(InternalUtils.cloneObject(inCriteria));
+          val opContext = Select.<T, List<T>>builder()
+              .getter(dao::select)
+              .selectParam(SelectParam.<T>builder()
+                  .criteria(criteria)
+                  .start(pointer.getCurrOffset(currIdx))
+                  .numRows(pageSize)
+                  .build())
+              .build();
+          return transactionExecutor.get(tenantId).execute(dao.sessionFactory,
+                  true, methodName,
+                  opContext, currIdx)
+              .stream()
+              .map(item -> new ScrollResultItem<>(item, currIdx));
+        })
+        .sorted(comparator)
+        .limit(pageSize)
+        .collect(Collectors.toList());
+    //This list will be of _pageSize_ long but max fetched might be _pageSize_ * numShards long
+    val outputBuilder = ImmutableList.<T>builder();
+    results.forEach(result -> {
+      outputBuilder.add(result.getData());
+      pointer.advance(result.getShardIdx(), 1);// will get advanced
+    });
+    return new ScrollResult<>(pointer, outputBuilder.build());
+  }
 
   /**
    * The {@code ReadOnlyContext} class represents a context for executing read-only operations
@@ -1336,7 +1166,8 @@ public class MultiTenantLookupDao<T> implements ShardedDao<T> {
       return apply(parent -> {
         if (filter.test(parent)) {
           try {
-            consumer.accept(parent, relationalDao.select(tenantId, this, criteria, first, numResults));
+            consumer.accept(parent,
+                relationalDao.select(tenantId, this, criteria, first, numResults));
           } catch (Exception e) {
             throw new RuntimeException(e);
           }
@@ -1376,7 +1207,8 @@ public class MultiTenantLookupDao<T> implements ShardedDao<T> {
       return apply(parent -> {
         if (filter.test(parent)) {
           try {
-            consumer.accept(parent, relationalDao.select(tenantId, this, querySpec, first, numResults));
+            consumer.accept(parent,
+                relationalDao.select(tenantId, this, querySpec, first, numResults));
           } catch (Exception e) {
             throw new RuntimeException(e);
           }
@@ -1438,42 +1270,230 @@ public class MultiTenantLookupDao<T> implements ShardedDao<T> {
     }
   }
 
-  @SneakyThrows
-  private ScrollResult<T> scrollImpl(String tenantId,
-      final DetachedCriteria inCriteria,
-      final ScrollPointer pointer,
-      final int pageSize,
-      final UnaryOperator<DetachedCriteria> criteriaMutator,
-      final Comparator<ScrollResultItem<T>> comparator,
-      String methodName) {
-    val daoIndex = new AtomicInteger();
-    val results = daos.get(tenantId).stream()
-        .flatMap(dao -> {
-          val currIdx = daoIndex.getAndIncrement();
-          val criteria = criteriaMutator.apply(InternalUtils.cloneObject(inCriteria));
-          val opContext = Select.<T, List<T>>builder()
-              .getter(dao::select)
-              .selectParam(SelectParam.<T>builder()
-                  .criteria(criteria)
-                  .start(pointer.getCurrOffset(currIdx))
-                  .numRows(pageSize)
-                  .build())
-              .build();
-          return transactionExecutor.get(tenantId).execute(dao.sessionFactory,
-                  true, methodName,
-                  opContext, currIdx)
-              .stream()
-              .map(item -> new ScrollResultItem<>(item, currIdx));
-        })
-        .sorted(comparator)
-        .limit(pageSize)
-        .collect(Collectors.toList());
-    //This list will be of _pageSize_ long but max fetched might be _pageSize_ * numShards long
-    val outputBuilder = ImmutableList.<T>builder();
-    results.forEach(result -> {
-      outputBuilder.add(result.getData());
-      pointer.advance(result.getShardIdx(), 1);// will get advanced
-    });
-    return new ScrollResult<>(pointer, outputBuilder.build());
+  /**
+   * The {@code LookupDaoPriv} class is a private implementation of a data access object (DAO)
+   * responsible for performing database operations related to a specific entity type {@code T}. It
+   * extends {@link AbstractDAO} to leverage common database access functionality provided by the
+   * parent class.
+   *
+   * <p>Instances of this class are typically created within a broader context and encapsulate
+   * database access operations specific to a particular entity type. These operations include
+   * retrieval, modification, querying, and deletion of records associated with the entity.
+   *
+   * <p>It uses a Hibernate {@link SessionFactory} to manage database sessions and perform
+   * operations within the scope of a session.
+   */
+  private final class LookupDaoPriv extends AbstractDAO<T> {
+
+    /**
+     * The Hibernate {@code SessionFactory} used for database operations.
+     */
+    private final SessionFactory sessionFactory;
+
+    /**
+     * Constructs a new {@code LookupDaoPriv} instance with the provided Hibernate
+     * {@link SessionFactory}. This constructor initializes the DAO with the session factory, which
+     * will be used for managing database operations.
+     *
+     * @param sessionFactory The Hibernate {@code SessionFactory} for database access.
+     */
+    public LookupDaoPriv(SessionFactory sessionFactory) {
+      super(sessionFactory);
+      this.sessionFactory = sessionFactory;
+    }
+
+    /**
+     * Retrieves an entity from the shard based on the provided lookup key. The entity is retrieved
+     * without any locking applied.
+     *
+     * @param lookupKey The unique lookup key identifying the entity.
+     * @return The retrieved entity, or null if the entity is not found.
+     */
+    T get(String lookupKey) {
+      return getLocked(lookupKey, x -> x, LockMode.READ);
+    }
+
+    T get(String lookupKey, UnaryOperator<Criteria> criteriaUpdater) {
+      return getLocked(lookupKey, criteriaUpdater, LockMode.READ);
+    }
+
+    /**
+     * Get an element from the shard.
+     *
+     * @param lookupKey       Id of the object
+     * @param criteriaUpdater Function to update criteria to add additional params
+     * @return Extracted element or null if not found.
+     */
+    T getLocked(String lookupKey, UnaryOperator<Criteria> criteriaUpdater, LockMode lockMode) {
+      Criteria criteria = criteriaUpdater.apply(currentSession()
+          .createCriteria(entityClass)
+          .add(Restrictions.eq(keyField.getName(), lookupKey))
+          .setLockMode(lockMode));
+      return uniqueResult(criteria);
+    }
+
+    /**
+     * Retrieves an entity from the shard with a pessimistic write lock applied. This method is
+     * typically used for write operations that require exclusive access to the entity.
+     *
+     * @param lookupKey The unique lookup key identifying the entity.
+     * @return The retrieved entity, or null if the entity is not found.
+     */
+    T getLockedForWrite(String lookupKey) {
+      return getLocked(lookupKey, LockModeType.PESSIMISTIC_WRITE);
+    }
+
+    /**
+     * Retrieves an entity from the shard with the specified lock mode applied. The entity is locked
+     * with the specified lock mode to control concurrent access.
+     *
+     * @param lookupKey The unique lookup key identifying the entity.
+     * @param lockMode  The type of lock to be applied (e.g., NONE, PESSIMISTIC_WRITE).
+     * @return The retrieved entity, or null if the entity is not found.
+     * @throws org.hibernate.NonUniqueResultException if database returns more than 1 rows for
+     *                                                {@code lookupKey}
+     */
+    T getLocked(String lookupKey, LockModeType lockMode) {
+      val session = currentSession();
+      val builder = session.getCriteriaBuilder();
+      val criteria = builder.createQuery(entityClass);
+      val root = criteria.from(entityClass);
+      criteria.where(equalityFilter(builder, root, keyField.getName(), lookupKey));
+      return uniqueResult(session.createQuery(criteria).setLockMode(lockMode));
+    }
+
+    /**
+     * Saves an entity to the shard. The entity is persisted in the database, and any generated
+     * fields are returned as part of the augmented entity.
+     *
+     * @param entity The entity to be saved to the shard.
+     * @return The augmented entity with generated fields populated.
+     */
+    T save(T entity) {
+      return persist(entity);
+    }
+
+    /**
+     * Updates the state of an entity in the shard. The entity is first detached from the current
+     * session to ensure that updates are performed. The updated entity is then associated with the
+     * session for synchronization.
+     *
+     * @param entity The entity to be updated in the shard.
+     */
+    void update(T entity) {
+      currentSession().evict(entity); //Detach .. otherwise update is a no-op
+      currentSession().update(entity);
+    }
+
+    /**
+     * Runs a query inside the shard based on the provided {@code DetachedCriteria} and returns a
+     * list of matching entities.
+     *
+     * @param criteria The selection criteria to be applied to the query.
+     * @return A list of matching entities or an empty list if none are found.
+     */
+    List<T> select(DetachedCriteria criteria) {
+      return list(criteria.getExecutableCriteria(currentSession()));
+    }
+
+    /**
+     * Run a query inside this shard and return the matching list.
+     *
+     * @param criteria selection criteria to be applied.
+     * @return List of elements or empty list if none found
+     */
+    @SuppressWarnings("rawtypes")
+    List run(DetachedCriteria criteria) {
+      return criteria.getExecutableCriteria(currentSession())
+          .list();
+    }
+
+    List<T> select(SelectParam selectParam) {
+      if (selectParam.criteria != null) {
+        val criteria = selectParam.criteria.getExecutableCriteria(currentSession());
+        if (null != selectParam.getStart()) {
+          criteria.setFirstResult(selectParam.start);
+        }
+        if (null != selectParam.getNumRows()) {
+          criteria.setMaxResults(selectParam.numRows);
+        }
+        return list(criteria);
+      }
+      val query = InternalUtils.createQuery(currentSession(), entityClass, selectParam.querySpec);
+      if (null != selectParam.getStart()) {
+        query.setFirstResult(selectParam.start);
+      }
+      if (null != selectParam.getNumRows()) {
+        query.setMaxResults(selectParam.numRows);
+      }
+      return list(query);
+    }
+
+    /**
+     * Runs a query inside the shard based on the provided {@code QuerySpec} and returns a list of
+     * matching entities.
+     *
+     * @param querySpec The query specification that defines the criteria and conditions.
+     * @return A list of matching entities or an empty list if none are found.
+     */
+    List<T> select(final QuerySpec<T, T> querySpec) {
+      val session = currentSession();
+      val builder = session.getCriteriaBuilder();
+      val criteria = builder.createQuery(entityClass);
+      val root = criteria.from(entityClass);
+      querySpec.apply(root, criteria, builder);
+      return list(session.createQuery(criteria));
+    }
+
+    /**
+     * Counts the number of entities that match the provided {@code DetachedCriteria}. The count is
+     * based on the selection criteria specified in the query.
+     *
+     * @param criteria The selection criteria to be applied for counting.
+     * @return The number of matching entities.
+     */
+    long count(DetachedCriteria criteria) {
+      return (long) criteria.getExecutableCriteria(currentSession())
+          .setProjection(Projections.rowCount())
+          .uniqueResult();
+    }
+
+    /**
+     * Deletes an entity from the shard based on the provided ID. The entity is retrieved and locked
+     * with a pessimistic write lock before deletion to ensure exclusive access.
+     *
+     * @param id The unique ID of the entity to be deleted.
+     * @return {@code true} if the entity is successfully deleted, {@code false} if it does not
+     * exist.
+     */
+    boolean delete(String id) {
+      return Optional.ofNullable(getLocked(id, LockModeType.PESSIMISTIC_WRITE))
+          .map(object -> {
+            currentSession().delete(object);
+            return true;
+          })
+          .orElse(false);
+
+    }
+
+
+    /**
+     * Executes an update operation within the shard based on the provided
+     * {@code UpdateOperationMeta} metadata. This method is used for performing batch updates or
+     * modifications to entities matching specific criteria.
+     *
+     * <p>The update operation is defined by a named query associated with the shard, as specified
+     * in the {@code UpdateOperationMeta} object. Any parameters required for the query are provided
+     * in the metadata, and the query is executed within the current database session.
+     *
+     * @param updateOperationMeta The metadata defining the update operation, including the named
+     *                            query and parameters.
+     * @return The number of entities affected by the update operation.
+     */
+    public int update(final UpdateOperationMeta updateOperationMeta) {
+      val query = currentSession().createNamedQuery(updateOperationMeta.getQueryName());
+      updateOperationMeta.getParams().forEach(query::setParameter);
+      return query.executeUpdate();
+    }
   }
 }

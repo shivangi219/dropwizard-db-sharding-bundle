@@ -269,6 +269,8 @@ public abstract class MultiTenantDBShardingBundleBase<T extends Configuration> i
   }
 
   private ShardingBundleOptions getShardingOptions(String tenantId, T configuration) {
+    Preconditions.checkArgument(getConfig(configuration).getTenants().containsKey(tenantId),
+        "Unknown tenant: " + tenantId);
     val options = getConfig(configuration).config(tenantId).getShardingOptions();
     return Objects.nonNull(options) ? options : new ShardingBundleOptions();
   }
@@ -325,6 +327,8 @@ public abstract class MultiTenantDBShardingBundleBase<T extends Configuration> i
 
   public <EntityType, T extends Configuration>
   RelationalDao<EntityType> createRelatedObjectDao(String tenantId, Class<EntityType> clazz) {
+    Preconditions.checkArgument(this.sessionFactories.containsKey(tenantId),
+        "Unknown tenant: " + tenantId);
     return new RelationalDao<>(this.sessionFactories.get(tenantId), clazz,
         new ShardCalculator<>(this.shardManagers.get(tenantId),
             new ConsistentHashBucketIdExtractor<>(this.shardManagers.get(tenantId))),
@@ -338,6 +342,8 @@ public abstract class MultiTenantDBShardingBundleBase<T extends Configuration> i
   CacheableRelationalDao<EntityType> createRelatedObjectDao(String tenantId,
       Class<EntityType> clazz,
       RelationalCache<EntityType> cacheManager) {
+    Preconditions.checkArgument(this.sessionFactories.containsKey(tenantId),
+        "Unknown tenant: " + tenantId);
     return new CacheableRelationalDao<>(this.sessionFactories.get(tenantId),
         clazz,
         new ShardCalculator<>(this.shardManagers.get(tenantId),
@@ -352,6 +358,8 @@ public abstract class MultiTenantDBShardingBundleBase<T extends Configuration> i
   RelationalDao<EntityType> createRelatedObjectDao(String tenantId,
       Class<EntityType> clazz,
       BucketIdExtractor<String> bucketIdExtractor) {
+    Preconditions.checkArgument(this.sessionFactories.containsKey(tenantId),
+        "Unknown tenant: " + tenantId);
     return new RelationalDao<>(this.sessionFactories.get(tenantId),
         clazz,
         new ShardCalculator<>(this.shardManagers.get(tenantId), bucketIdExtractor),
@@ -365,6 +373,8 @@ public abstract class MultiTenantDBShardingBundleBase<T extends Configuration> i
       Class<EntityType> clazz,
       BucketIdExtractor<String> bucketIdExtractor,
       RelationalCache<EntityType> cacheManager) {
+    Preconditions.checkArgument(this.sessionFactories.containsKey(tenantId),
+        "Unknown tenant: " + tenantId);
     return new CacheableRelationalDao<>(this.sessionFactories.get(tenantId),
         clazz,
         new ShardCalculator<>(this.shardManagers.get(tenantId), bucketIdExtractor),
@@ -377,6 +387,8 @@ public abstract class MultiTenantDBShardingBundleBase<T extends Configuration> i
 
   public <EntityType, DaoType extends AbstractDAO<EntityType>, T extends Configuration>
   WrapperDao<EntityType, DaoType> createWrapperDao(String tenantId, Class<DaoType> daoTypeClass) {
+    Preconditions.checkArgument(this.sessionFactories.containsKey(tenantId),
+        "Unknown tenant: " + tenantId);
     return new WrapperDao<>(this.sessionFactories.get(tenantId),
         daoTypeClass,
         new ShardCalculator<>(this.shardManagers.get(tenantId),
@@ -387,6 +399,8 @@ public abstract class MultiTenantDBShardingBundleBase<T extends Configuration> i
   WrapperDao<EntityType, DaoType> createWrapperDao(String tenantId,
       Class<DaoType> daoTypeClass,
       BucketIdExtractor<String> bucketIdExtractor) {
+    Preconditions.checkArgument(this.sessionFactories.containsKey(tenantId),
+        "Unknown tenant: " + tenantId);
     return new WrapperDao<>(this.sessionFactories.get(tenantId),
         daoTypeClass,
         new ShardCalculator<>(this.shardManagers.get(tenantId), bucketIdExtractor));
@@ -397,6 +411,8 @@ public abstract class MultiTenantDBShardingBundleBase<T extends Configuration> i
       Class<DaoType> daoTypeClass,
       Class[] extraConstructorParamClasses,
       Class[] extraConstructorParamObjects) {
+    Preconditions.checkArgument(this.sessionFactories.containsKey(tenantId),
+        "Unknown tenant: " + tenantId);
     return new WrapperDao<>(this.sessionFactories.get(tenantId), daoTypeClass,
         extraConstructorParamClasses, extraConstructorParamObjects,
         new ShardCalculator<>(this.shardManagers.get(tenantId),
