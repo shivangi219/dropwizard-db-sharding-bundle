@@ -17,10 +17,8 @@
 
 package io.appform.dropwizard.sharding;
 
-import com.codahale.metrics.MetricRegistry;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import io.appform.dropwizard.sharding.admin.BlacklistShardTask;
 import io.appform.dropwizard.sharding.admin.UnblacklistShardTask;
@@ -34,17 +32,8 @@ import io.appform.dropwizard.sharding.dao.CacheableRelationalDao;
 import io.appform.dropwizard.sharding.dao.LookupDao;
 import io.appform.dropwizard.sharding.dao.RelationalDao;
 import io.appform.dropwizard.sharding.dao.WrapperDao;
-import io.appform.dropwizard.sharding.filters.TransactionFilter;
 import io.appform.dropwizard.sharding.healthcheck.HealthCheckManager;
-import io.appform.dropwizard.sharding.listeners.TransactionListener;
-import io.appform.dropwizard.sharding.metrics.TransactionMetricManager;
-import io.appform.dropwizard.sharding.metrics.TransactionMetricObserver;
-import io.appform.dropwizard.sharding.observers.TransactionObserver;
-import io.appform.dropwizard.sharding.observers.internal.FilteringObserver;
-import io.appform.dropwizard.sharding.observers.internal.ListenerTriggeringObserver;
-import io.appform.dropwizard.sharding.observers.internal.TerminalTransactionObserver;
 import io.appform.dropwizard.sharding.sharding.BucketIdExtractor;
-import io.appform.dropwizard.sharding.sharding.InMemoryLocalShardBlacklistingStore;
 import io.appform.dropwizard.sharding.sharding.ShardBlacklistingStore;
 import io.appform.dropwizard.sharding.sharding.ShardManager;
 import io.appform.dropwizard.sharding.sharding.impl.ConsistentHashBucketIdExtractor;
@@ -57,32 +46,24 @@ import io.dropwizard.hibernate.HibernateBundle;
 import io.dropwizard.hibernate.SessionFactoryFactory;
 import io.dropwizard.setup.Bootstrap;
 import io.dropwizard.setup.Environment;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.function.Supplier;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import lombok.val;
 import org.apache.commons.lang3.StringUtils;
 import org.hibernate.SessionFactory;
-import org.jasypt.encryption.pbe.StandardPBEStringEncryptor;
-import org.jasypt.hibernate5.encryptor.HibernatePBEEncryptorRegistry;
-import org.jasypt.iv.StringFixedIvGenerator;
-import org.reflections.Reflections;
-
-import javax.persistence.Entity;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
-import java.util.function.Supplier;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 
 /**
  * Base for bundles. This cannot be used by clients. Use one of the derived classes.
  */
 @Slf4j
-public abstract class DBShardingBundleBase<T extends Configuration> implements ConfiguredBundle<T> {
+public abstract class DBShardingBundleBase<T extends Configuration> extends BundleCommonBase<T> {
 
     private static final String DEFAULT_NAMESPACE = "default";
     private static final String SHARD_ENV = "db.shards";
@@ -104,34 +85,19 @@ public abstract class DBShardingBundleBase<T extends Configuration> implements C
 
     private HealthCheckManager healthCheckManager;
 
-    private final List<TransactionListener> listeners = new ArrayList<>();
-    private final List<TransactionFilter> filters = new ArrayList<>();
-
-    private final List<TransactionObserver> observers = new ArrayList<>();
-
-    private final List<Class<?>> initialisedEntities;
-
-    private TransactionObserver rootObserver;
-
     protected DBShardingBundleBase(
             String dbNamespace,
             Class<?> entity,
             Class<?>... entities) {
+        super(entity, entities);
         this.dbNamespace = dbNamespace;
-        val inEntities = ImmutableList.<Class<?>>builder().add(entity).add(entities).build();
-        this.initialisedEntities = inEntities;
-        init(inEntities);
+        init();
     }
 
     protected DBShardingBundleBase(String dbNamespace, List<String> classPathPrefixList) {
+        super(classPathPrefixList);
         this.dbNamespace = dbNamespace;
-        Set<Class<?>> entities = new Reflections(classPathPrefixList).getTypesAnnotatedWith(Entity.class);
-        Preconditions.checkArgument(!entities.isEmpty(),
-                String.format("No entity class found at %s",
-                        String.join(",", classPathPrefixList)));
-        val inEntities = ImmutableList.<Class<?>>builder().addAll(entities).build();
-        this.initialisedEntities = inEntities;
-        init(inEntities);
+        init();
     }
 
     protected DBShardingBundleBase(Class<?> entity, Class<?>... entities) {
@@ -142,16 +108,9 @@ public abstract class DBShardingBundleBase<T extends Configuration> implements C
         this(DEFAULT_NAMESPACE, Arrays.asList(classPathPrefixes));
     }
 
-    public List<Class<?>> getInitialisedEntities() {
-        if(this.initialisedEntities == null){
-            throw new RuntimeException("DB sharding bundle is not initialised !");
-        }
-        return this.initialisedEntities;
-    }
-
     protected abstract ShardManager createShardManager(int numShards, ShardBlacklistingStore blacklistingStore);
 
-    private void init(final ImmutableList<Class<?>> inEntities) {
+    private void init() {
         boolean defaultNamespace = StringUtils.equalsIgnoreCase(dbNamespace, DEFAULT_NAMESPACE);
         val numShardsProperty = defaultNamespace ? SHARD_ENV : String.join(".", dbNamespace, SHARD_ENV);
         String numShardsEnv = System.getProperty(numShardsProperty, DEFAULT_SHARDS);
@@ -166,15 +125,13 @@ public abstract class DBShardingBundleBase<T extends Configuration> implements C
         //Encryption Support through jasypt-hibernate5
         if(shardingOptions.isEncryptionSupportEnabled()) {
             Preconditions.checkArgument(shardingOptions.getEncryptionIv().length() == 16, "Encryption IV Should be 16 bytes long");
-            StandardPBEStringEncryptor strongEncryptor = new StandardPBEStringEncryptor();
-            HibernatePBEEncryptorRegistry encryptorRegistry = HibernatePBEEncryptorRegistry.getInstance();
-            strongEncryptor.setAlgorithm(shardingOptions.getEncryptionAlgorithm());
-            strongEncryptor.setPassword(shardingOptions.getEncryptionPassword());
-            strongEncryptor.setIvGenerator(new StringFixedIvGenerator(shardingOptions.getEncryptionIv()));
-            encryptorRegistry.registerPBEStringEncryptor("encryptedString", strongEncryptor);
+            registerStringEncryptor(null, shardingOptions);
+            registerBigIntegerEncryptor(null, shardingOptions);
+            registerBigDecimalEncryptor(null, shardingOptions);
+            registerByteEncryptor(null, shardingOptions);
         }
         IntStream.range(0, numShards).forEach(
-                shard -> shardBundles.add(new HibernateBundle<T>(inEntities, new SessionFactoryFactory()) {
+                shard -> shardBundles.add(new HibernateBundle<T>(initialisedEntities, new SessionFactoryFactory()) {
                     @Override
                     protected String name() {
                         return shardInfoProvider.shardName(shard);
@@ -199,31 +156,7 @@ public abstract class DBShardingBundleBase<T extends Configuration> implements C
         environment.admin().addTask(new BlacklistShardTask(shardManager));
         environment.admin().addTask(new UnblacklistShardTask(shardManager));
         healthCheckManager.manageHealthChecks(getConfig(configuration).getBlacklist(), environment);
-        setupObservers(configuration, environment.metrics());
-    }
-
-    public final void registerObserver(final TransactionObserver observer) {
-        if (null == observer) {
-            return;
-        }
-        this.observers.add(observer);
-        log.info("Registered observer: " + observer.getClass().getSimpleName());
-    }
-
-    public final void registerListener(final TransactionListener listener) {
-        if (null == listener) {
-            return;
-        }
-        this.listeners.add(listener);
-        log.info("Registered listener: " + listener.getClass().getSimpleName());
-    }
-
-    public final void registerFilter(final TransactionFilter filter) {
-        if (null == filter) {
-            return;
-        }
-        this.filters.add(filter);
-        log.info("Registered filter: " + filter.getClass().getSimpleName());
+        setupObservers(getConfig(configuration).getMetricConfig(), environment.metrics());
     }
 
     @Override
@@ -259,10 +192,6 @@ public abstract class DBShardingBundleBase<T extends Configuration> implements C
 
     protected Supplier<MetricConfig> getMetricConfig(T config) {
         return () -> getConfig(config).getMetricConfig();
-    }
-
-    protected ShardBlacklistingStore getBlacklistingStore() {
-        return new InMemoryLocalShardBlacklistingStore();
     }
 
     private ShardingBundleOptions getShardingOptions(T configuration) {
@@ -401,35 +330,4 @@ public abstract class DBShardingBundleBase<T extends Configuration> implements C
                 new ShardCalculator<>(this.shardManager,
                         new ConsistentHashBucketIdExtractor<>(this.shardManager)));
     }
-
-    private void setupObservers(final T config,
-                                final MetricRegistry metricRegistry) {
-        //Observer chain starts with filters and ends with listener invocations
-        //Terminal observer calls the actual method
-        rootObserver = new ListenerTriggeringObserver(new TerminalTransactionObserver()).addListeners(listeners);
-        for (var observer : observers) {
-            if (null == observer) {
-                return;
-            }
-            this.rootObserver = observer.setNext(rootObserver);
-        }
-        rootObserver = new TransactionMetricObserver(new TransactionMetricManager(getMetricConfig(config),
-                metricRegistry)).setNext(rootObserver);
-        rootObserver = new FilteringObserver(rootObserver).addFilters(filters);
-
-        //Print the observer chain
-        log.debug("Observer chain");
-        rootObserver.visit(observer -> {
-            log.debug(" Observer: {}", observer.getClass().getSimpleName());
-            if (observer instanceof FilteringObserver) {
-                log.debug("  Filters:");
-                ((FilteringObserver) observer).getFilters().forEach(filter -> log.debug("    - {}", filter.getClass().getSimpleName()));
-            }
-            if (observer instanceof ListenerTriggeringObserver) {
-                log.debug("  Listeners:");
-                ((ListenerTriggeringObserver) observer).getListeners().forEach(filter -> log.debug("    - {}", filter.getClass().getSimpleName()));
-            }
-        });
-    }
-
 }

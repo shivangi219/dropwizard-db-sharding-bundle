@@ -21,14 +21,22 @@ import io.appform.dropwizard.sharding.config.MultiTenantShardedHibernateFactory;
 import io.appform.dropwizard.sharding.config.ShardedHibernateFactory;
 import io.appform.dropwizard.sharding.dao.testdata.entities.Order;
 import io.appform.dropwizard.sharding.dao.testdata.entities.OrderItem;
+import io.appform.dropwizard.sharding.dao.testdata.entities.TestEncryptedEntity;
 
 public class MultiTenantLegacyDBShardingBundleWithEntityTest extends MultiTenantDBShardingBundleTestBase {
 
     @Override
     protected MultiTenantDBShardingBundleBase<TestConfig> getBundle() {
-        return new MultiTenantDBShardingBundle<TestConfig>(Order.class, OrderItem.class) {
+        return new MultiTenantDBShardingBundle<TestConfig>(Order.class, OrderItem.class,
+            TestEncryptedEntity.class) {
             @Override
             protected MultiTenantShardedHibernateFactory getConfig(TestConfig config) {
+                config.getShards().getTenants().forEach((tenant, factory) -> {
+                    factory.getShardingOptions().setEncryptionSupportEnabled(true);
+                    factory.getShardingOptions().setEncryptionAlgorithm("PBEWithHmacSHA256AndAES_256");
+                    factory.getShardingOptions().setEncryptionPassword("eBhjVFN5LtP6hpwzWdjSkBQg");
+                    factory.getShardingOptions().setEncryptionIv("8SCaDgvH5xMD3KFE");
+                });
                 return testConfig.getShards();
             }
         };

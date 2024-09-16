@@ -30,11 +30,11 @@ import lombok.extern.slf4j.Slf4j;
 public abstract class MultiTenantBalancedDBShardingBundle<T extends Configuration> extends
     MultiTenantDBShardingBundleBase<T> {
 
-  public MultiTenantBalancedDBShardingBundle(Class<?> entity, Class<?>... entities) {
+  protected MultiTenantBalancedDBShardingBundle(Class<?> entity, Class<?>... entities) {
     super(entity, entities);
   }
 
-  public MultiTenantBalancedDBShardingBundle(String... classPathPrefixes) {
+  protected MultiTenantBalancedDBShardingBundle(String... classPathPrefixes) {
     super(classPathPrefixes);
   }
 

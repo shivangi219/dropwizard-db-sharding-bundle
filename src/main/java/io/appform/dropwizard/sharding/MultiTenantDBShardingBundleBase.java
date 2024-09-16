@@ -17,10 +17,8 @@
 
 package io.appform.dropwizard.sharding;
 
-import com.codahale.metrics.MetricRegistry;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
 import io.appform.dropwizard.sharding.admin.BlacklistShardTask;
 import io.appform.dropwizard.sharding.admin.UnblacklistShardTask;
@@ -34,17 +32,8 @@ import io.appform.dropwizard.sharding.dao.MultiTenantCacheableRelationalDao;
 import io.appform.dropwizard.sharding.dao.MultiTenantLookupDao;
 import io.appform.dropwizard.sharding.dao.MultiTenantRelationalDao;
 import io.appform.dropwizard.sharding.dao.WrapperDao;
-import io.appform.dropwizard.sharding.filters.TransactionFilter;
 import io.appform.dropwizard.sharding.healthcheck.HealthCheckManager;
-import io.appform.dropwizard.sharding.listeners.TransactionListener;
-import io.appform.dropwizard.sharding.metrics.TransactionMetricManager;
-import io.appform.dropwizard.sharding.metrics.TransactionMetricObserver;
-import io.appform.dropwizard.sharding.observers.TransactionObserver;
-import io.appform.dropwizard.sharding.observers.internal.FilteringObserver;
-import io.appform.dropwizard.sharding.observers.internal.ListenerTriggeringObserver;
-import io.appform.dropwizard.sharding.observers.internal.TerminalTransactionObserver;
 import io.appform.dropwizard.sharding.sharding.BucketIdExtractor;
-import io.appform.dropwizard.sharding.sharding.InMemoryLocalShardBlacklistingStore;
 import io.appform.dropwizard.sharding.sharding.ShardBlacklistingStore;
 import io.appform.dropwizard.sharding.sharding.ShardManager;
 import io.appform.dropwizard.sharding.sharding.impl.ConsistentHashBucketIdExtractor;
@@ -58,31 +47,30 @@ import io.dropwizard.hibernate.HibernateBundle;
 import io.dropwizard.hibernate.SessionFactoryFactory;
 import io.dropwizard.setup.Bootstrap;
 import io.dropwizard.setup.Environment;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import javax.persistence.Entity;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import lombok.val;
 import org.hibernate.SessionFactory;
+import org.jasypt.encryption.pbe.StandardPBEBigDecimalEncryptor;
+import org.jasypt.encryption.pbe.StandardPBEBigIntegerEncryptor;
+import org.jasypt.encryption.pbe.StandardPBEByteEncryptor;
 import org.jasypt.encryption.pbe.StandardPBEStringEncryptor;
 import org.jasypt.hibernate5.encryptor.HibernatePBEEncryptorRegistry;
 import org.jasypt.iv.StringFixedIvGenerator;
-import org.reflections.Reflections;
 
 /**
  * Base for Multi-Tenant sharding bundles. Clients cannot use this. Use one of the derived classes.
  */
 @Slf4j
-public abstract class MultiTenantDBShardingBundleBase<T extends Configuration> implements
-    ConfiguredBundle<T> {
+public abstract class MultiTenantDBShardingBundleBase<T extends Configuration> extends
+    BundleCommonBase<T> {
 
   private Map<String, List<HibernateBundle<T>>> shardBundles = Maps.newHashMap();
 
@@ -99,39 +87,18 @@ public abstract class MultiTenantDBShardingBundleBase<T extends Configuration> i
 
   private Map<String, HealthCheckManager> healthCheckManagers = Maps.newHashMap();
 
-  private final List<TransactionListener> listeners = new ArrayList<>();
-  private final List<TransactionFilter> filters = new ArrayList<>();
-
-  private final List<TransactionObserver> observers = new ArrayList<>();
-
-  private final List<Class<?>> initialisedEntities;
-
-  private TransactionObserver rootObserver;
-
   protected MultiTenantDBShardingBundleBase(
       Class<?> entity,
       Class<?>... entities) {
-    this.initialisedEntities = ImmutableList.<Class<?>>builder().add(entity).add(entities).build();
+    super(entity, entities);
   }
 
   protected MultiTenantDBShardingBundleBase(List<String> classPathPrefixList) {
-    Set<Class<?>> entities = new Reflections(classPathPrefixList).getTypesAnnotatedWith(
-        Entity.class);
-    Preconditions.checkArgument(!entities.isEmpty(),
-        String.format("No entity class found at %s",
-            String.join(",", classPathPrefixList)));
-    this.initialisedEntities = ImmutableList.<Class<?>>builder().addAll(entities).build();
+    super(classPathPrefixList);
   }
 
   protected MultiTenantDBShardingBundleBase(String... classPathPrefixes) {
     this(Arrays.asList(classPathPrefixes));
-  }
-
-  public List<Class<?>> getInitialisedEntities() {
-    if (this.initialisedEntities == null) {
-      throw new IllegalStateException("DB sharding bundle is not initialised !");
-    }
-    return this.initialisedEntities;
   }
 
   protected abstract ShardManager createShardManager(int numShards,
@@ -154,17 +121,6 @@ public abstract class MultiTenantDBShardingBundleBase<T extends Configuration> i
       var shardingOption = shardConfig.getShardingOptions();
       shardingOption =
           Objects.nonNull(shardingOption) ? shardingOption : new ShardingBundleOptions();
-      if (shardingOption.isEncryptionSupportEnabled()) {
-        Preconditions.checkArgument(shardingOption.getEncryptionIv().length() == 16,
-            "Encryption IV Should be 16 bytes long");
-        StandardPBEStringEncryptor strongEncryptor = new StandardPBEStringEncryptor();
-        HibernatePBEEncryptorRegistry encryptorRegistry = HibernatePBEEncryptorRegistry.getInstance();
-        strongEncryptor.setAlgorithm(shardingOption.getEncryptionAlgorithm());
-        strongEncryptor.setPassword(shardingOption.getEncryptionPassword());
-        strongEncryptor.setIvGenerator(
-            new StringFixedIvGenerator(shardingOption.getEncryptionIv()));
-        encryptorRegistry.registerPBEStringEncryptor("encryptedString", strongEncryptor);
-      }
       List<HibernateBundle<T>> shardedBundle = IntStream.range(0, shardConfig.getShards().size())
           .mapToObj(
               shard ->
@@ -190,6 +146,15 @@ public abstract class MultiTenantDBShardingBundleBase<T extends Configuration> i
       this.shardBundles.put(tenantId, shardedBundle);
       val sessionFactory = shardedBundle.stream().map(HibernateBundle::getSessionFactory)
           .collect(Collectors.toList());
+      sessionFactory.forEach(factory -> factory.getProperties().put("tenant.id", tenantId));
+      if (shardingOption.isEncryptionSupportEnabled()) {
+        Preconditions.checkArgument(shardingOption.getEncryptionIv().length() == 16,
+            "Encryption IV Should be 16 bytes long");
+        registerStringEncryptor(tenantId, shardingOption);
+        registerBigIntegerEncryptor(tenantId, shardingOption);
+        registerBigDecimalEncryptor(tenantId, shardingOption);
+        registerByteEncryptor(tenantId, shardingOption);
+      }
       this.sessionFactories.put(tenantId, sessionFactory);
       this.shardingOptions.put(tenantId, shardingOption);
       healthCheckManager.manageHealthChecks(shardConfig.getBlacklist(), environment);
@@ -199,34 +164,9 @@ public abstract class MultiTenantDBShardingBundleBase<T extends Configuration> i
     });
   }
 
-  public final void registerObserver(final TransactionObserver observer) {
-    if (null == observer) {
-      return;
-    }
-    this.observers.add(observer);
-    log.info("Registered observer: {}", observer.getClass().getSimpleName());
-  }
-
-  public final void registerListener(final TransactionListener listener) {
-    if (null == listener) {
-      return;
-    }
-    this.listeners.add(listener);
-    log.info("Registered listener: {}", listener.getClass().getSimpleName());
-  }
-
-  public final void registerFilter(final TransactionFilter filter) {
-    if (null == filter) {
-      return;
-    }
-    this.filters.add(filter);
-    log.info("Registered filter: {}", filter.getClass().getSimpleName());
-  }
-
   @Override
   @SuppressWarnings("unchecked")
   public void initialize(Bootstrap<?> bootstrap) {
-
     healthCheckManagers.values().forEach(healthCheckManager -> {
       bootstrap.getHealthCheckRegistry().addListener(healthCheckManager);
     });
@@ -264,10 +204,6 @@ public abstract class MultiTenantDBShardingBundleBase<T extends Configuration> i
 
   protected Supplier<MetricConfig> getMetricConfig(String tenantId, T config) {
     return () -> getConfig(config).getTenants().get(tenantId).getMetricConfig();
-  }
-
-  protected ShardBlacklistingStore getBlacklistingStore() {
-    return new InMemoryLocalShardBlacklistingStore();
   }
 
   private ShardingBundleOptions getShardingOptions(String tenantId, T configuration) {
@@ -408,38 +344,5 @@ public abstract class MultiTenantDBShardingBundleBase<T extends Configuration> i
         extraConstructorParamClasses, extraConstructorParamObjects,
         new ShardCalculator<>(this.shardManagers.get(tenantId),
             new ConsistentHashBucketIdExtractor<>(this.shardManagers.get(tenantId))));
-  }
-
-  private void setupObservers(final MetricConfig metricConfig,
-      final MetricRegistry metricRegistry) {
-    //Observer chain starts with filters and ends with listener invocations
-    //Terminal observer calls the actual method
-    rootObserver = new ListenerTriggeringObserver(new TerminalTransactionObserver()).addListeners(
-        listeners);
-    for (var observer : observers) {
-      if (null == observer) {
-        return;
-      }
-      this.rootObserver = observer.setNext(rootObserver);
-    }
-    rootObserver = new TransactionMetricObserver(
-        new TransactionMetricManager(() -> metricConfig,
-            metricRegistry)).setNext(rootObserver);
-    rootObserver = new FilteringObserver(rootObserver).addFilters(filters);
-    //Print the observer chain
-    log.debug("Observer chain");
-    rootObserver.visit(observer -> {
-      log.debug(" Observer: {}", observer.getClass().getSimpleName());
-      if (observer instanceof FilteringObserver) {
-        log.debug("  Filters:");
-        ((FilteringObserver) observer).getFilters()
-            .forEach(filter -> log.debug("    - {}", filter.getClass().getSimpleName()));
-      }
-      if (observer instanceof ListenerTriggeringObserver) {
-        log.debug("  Listeners:");
-        ((ListenerTriggeringObserver) observer).getListeners()
-            .forEach(filter -> log.debug("    - {}", filter.getClass().getSimpleName()));
-      }
-    });
   }
 }

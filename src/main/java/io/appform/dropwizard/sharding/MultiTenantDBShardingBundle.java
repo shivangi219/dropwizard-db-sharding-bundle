@@ -31,15 +31,15 @@ import lombok.extern.slf4j.Slf4j;
 public abstract class MultiTenantDBShardingBundle<T extends Configuration> extends
     MultiTenantDBShardingBundleBase<T> {
 
-  public MultiTenantDBShardingBundle(List<String> classPathPrefixList) {
+  protected MultiTenantDBShardingBundle(List<String> classPathPrefixList) {
     super(classPathPrefixList);
   }
 
-  public MultiTenantDBShardingBundle(Class<?> entity, Class<?>... entities) {
+  protected MultiTenantDBShardingBundle(Class<?> entity, Class<?>... entities) {
     super(entity, entities);
   }
 
-  public MultiTenantDBShardingBundle(String... classPathPrefixes) {
+  protected MultiTenantDBShardingBundle(String... classPathPrefixes) {
     super(classPathPrefixes);
   }
 
