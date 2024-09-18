@@ -6,7 +6,7 @@
 
     <groupId>io.appform.dropwizard.sharding</groupId>
     <artifactId>db-sharding-bundle</artifactId>
-    <version>2.1.10-5</version>
+    <version>2.1.10-6</version>
     <name>Dropwizard Database Sharding Bundle</name>
     <url>https://github.com/santanusinha/dropwizard-db-sharding-bundle</url>
     <description>Application layer database sharding over SQL dbs</description>
@@ -77,7 +77,7 @@
         <guava.version>33.2.1-jre</guava.version>
         <guava-retrying.version>2.0.0</guava-retrying.version>
         <caffeine.version>2.9.3</caffeine.version>
-        <jasypt-hibernate5.version>1.9.4</jasypt-hibernate5.version>
+        <jasypt-hibernate5.version>1.9.5</jasypt-hibernate5.version>
         <junit.jupiter.version>5.7.2</junit.jupiter.version>
         <h2.version>1.4.196</h2.version>
         <mockito.version>4.3.1</mockito.version>

@@ -26,28 +26,16 @@ import java.util.Map;
 /**
  * Generates bucket id on the basis of murmur128 of the key.
  */
-public class ConsistentHashBucketIdExtractor<T> implements BucketIdExtractor<T> {
-
-    private final ShardManager shardManager;
-
+public class MultiTenantConsistentHashBucketIdExtractor<T> implements BucketIdExtractor<T> {
     private final Map<String, ShardManager> shardManagers;
 
-    public ConsistentHashBucketIdExtractor(ShardManager shardManager) {
-        this.shardManager = shardManager;
-        this.shardManagers = null;
-    }
-
-    public ConsistentHashBucketIdExtractor(Map<String, ShardManager> shardManagers) {
-        this.shardManager = null;
+    public MultiTenantConsistentHashBucketIdExtractor(Map<String, ShardManager> shardManagers) {
         this.shardManagers = shardManagers;
     }
 
-
     @Override
     public int bucketId(T id) {
-        int hashKey = Hashing.murmur3_128().hashString(id.toString(), StandardCharsets.UTF_8).asInt();
-        hashKey *= hashKey < 0 ? -1 : 1;
-        return hashKey % shardManager.numBuckets();
+        throw new UnsupportedOperationException();
     }
 
     @Override
