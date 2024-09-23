@@ -172,6 +172,32 @@ public class LockedContext<T> {
     }
 
     /**
+     * Generates entity of type {@code U} using entityGenerator and then persists them
+     *
+     * @param <U>             The type of the associated entity to be saved.
+     * @param tenantId        Tenant Id
+     * @param relationalDao   The relational DAO responsible for saving the associated entity.
+     * @param entityGenerator A function that generates the associated entity based on the parent entity.
+     * @return A reference to this LockedContext, enabling method chaining.
+     * @throws RuntimeException         if an exception occurs during entity generation or saving.
+     *                                  This exception typically wraps any underlying exceptions that may occur
+     *                                  during the execution of the entity generation or save operation.
+     *                                  It indicates that the save operation was unsuccessful.
+     * @throws IllegalArgumentException if the provided relational DAO or entity generator function is null.
+     *                                  This exception indicates invalid or missing inputs.
+     */
+    public <U> LockedContext<T> save(String tenantId, MultiTenantRelationalDao<U> relationalDao, Function<T, U> entityGenerator) {
+        return apply(parent -> {
+            try {
+                U entity = entityGenerator.apply(parent);
+                relationalDao.save(tenantId, this, entity);
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        });
+    }
+
+    /**
      * Generates list of entity of type {@code U} using entityGenerator and then persists them in bulk
      *
      * @param <U>             The type of the associated entity to be saved.
@@ -191,6 +217,34 @@ public class LockedContext<T> {
                 List<U> entities = entityGenerator.apply(parent);
                 for (U entity : entities) {
                     relationalDao.save(this, entity);
+                }
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        });
+    }
+
+    /**
+     * Generates list of entity of type {@code U} using entityGenerator and then persists them in bulk
+     *
+     * @param <U>             The type of the associated entity to be saved.
+     * @param tenantId        Tenant Id
+     * @param relationalDao   The relational DAO responsible for saving the associated entity.
+     * @param entityGenerator A function that generates the associated entity based on the parent entity.
+     * @return A reference to this LockedContext, enabling method chaining.
+     * @throws RuntimeException         if an exception occurs during entity generation or saving.
+     *                                  This exception typically wraps any underlying exceptions that may occur
+     *                                  during the execution of the entity generation or save operation.
+     *                                  It indicates that the save operation was unsuccessful.
+     * @throws IllegalArgumentException if the provided relational DAO or entity generator function is null.
+     *                                  This exception indicates invalid or missing inputs.
+     */
+    public <U> LockedContext<T> saveAll(String tenantId, MultiTenantRelationalDao<U> relationalDao, Function<T, List<U>> entityGenerator) {
+        return apply(parent -> {
+            try {
+                List<U> entities = entityGenerator.apply(parent);
+                for (U entity : entities) {
+                    relationalDao.save(tenantId, this, entity);
                 }
             } catch (Exception e) {
                 throw new RuntimeException(e);
