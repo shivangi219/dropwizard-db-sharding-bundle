@@ -17,6 +17,7 @@
 
 package io.appform.dropwizard.sharding;
 
+import io.appform.dropwizard.sharding.config.ShardedHibernateFactory;
 import io.appform.dropwizard.sharding.sharding.BalancedShardManager;
 import io.appform.dropwizard.sharding.sharding.ShardBlacklistingStore;
 import io.appform.dropwizard.sharding.sharding.ShardManager;
@@ -51,8 +52,12 @@ public abstract class BalancedDBShardingBundle<T extends Configuration> extends 
     }
 
     @Override
-    protected ShardManager createShardManager(int numShards, ShardBlacklistingStore shardBlacklistingStore) {
+    final protected ShardManager createShardManager(int numShards, ShardBlacklistingStore shardBlacklistingStore) {
         return new BalancedShardManager(numShards, shardBlacklistingStore);
     }
+
+    @Override
+    protected abstract ShardedHibernateFactory getConfig(T config);
+
 
 }

@@ -17,6 +17,7 @@
 
 package io.appform.dropwizard.sharding.dao;
 
+import io.appform.dropwizard.sharding.DBShardingBundleBase;
 import io.appform.dropwizard.sharding.ShardInfoProvider;
 import io.appform.dropwizard.sharding.caching.LookupCache;
 import io.appform.dropwizard.sharding.config.ShardingBundleOptions;
@@ -24,10 +25,12 @@ import io.appform.dropwizard.sharding.exceptions.DaoFwdException;
 import io.appform.dropwizard.sharding.observers.TransactionObserver;
 import io.appform.dropwizard.sharding.sharding.LookupKey;
 import io.appform.dropwizard.sharding.utils.ShardCalculator;
+import lombok.Builder;
 import lombok.extern.slf4j.Slf4j;
 import org.hibernate.SessionFactory;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
 
@@ -42,7 +45,15 @@ import java.util.function.Function;
 @Slf4j
 public class CacheableLookupDao<T> extends LookupDao<T> {
 
-    private LookupCache<T> cache;
+    private final String dbNamespace;
+    private final MultiTenantCacheableLookupDao<T> delegate;
+
+    public CacheableLookupDao(final String tenantId,
+                              final MultiTenantCacheableLookupDao<T> delegate) {
+        super(tenantId, delegate);
+        this.dbNamespace = tenantId;
+        this.delegate = delegate;
+    }
 
     /**
      * Constructs a CacheableLookupDao instance with caching support.
@@ -66,7 +77,16 @@ public class CacheableLookupDao<T> extends LookupDao<T> {
                               ShardInfoProvider shardInfoProvider,
                               TransactionObserver observer) {
         super(sessionFactories, entityClass, shardCalculator, shardingOptions, shardInfoProvider, observer);
-        this.cache = cache;
+        this.dbNamespace = DBShardingBundleBase.DEFAULT_NAMESPACE;
+        this.delegate = new MultiTenantCacheableLookupDao<>(
+                Map.of(dbNamespace, sessionFactories),
+                entityClass,
+                shardCalculator,
+                Map.of(dbNamespace, cache),
+                Map.of(dbNamespace, shardingOptions),
+                Map.of(dbNamespace, shardInfoProvider),
+                observer
+        );
     }
 
     /**
@@ -84,14 +104,7 @@ public class CacheableLookupDao<T> extends LookupDao<T> {
      */
     @Override
     public Optional<T> get(String key) throws Exception {
-        if (cache.exists(key)) {
-            return Optional.of(cache.get(key));
-        }
-        T entity = super.get(key, Function.identity());
-        if (entity != null) {
-            cache.put(key, entity);
-        }
-        return Optional.ofNullable(entity);
+        return delegate.get(dbNamespace, key);
     }
 
     /**
@@ -108,12 +121,7 @@ public class CacheableLookupDao<T> extends LookupDao<T> {
      */
     @Override
     public Optional<T> save(T entity) throws Exception {
-        T savedEntity = super.save(entity, t -> t);
-        if (savedEntity != null) {
-            final String key = getKeyField().get(entity).toString();
-            cache.put(key, entity);
-        }
-        return Optional.ofNullable(savedEntity);
+        return delegate.save(dbNamespace, entity);
     }
 
     /**
@@ -130,16 +138,7 @@ public class CacheableLookupDao<T> extends LookupDao<T> {
      */
     @Override
     public boolean update(String id, Function<Optional<T>, T> updater) {
-        boolean result = super.update(id, updater);
-        if (result) {
-            try {
-                Optional<T> updatedEntity = super.get(id);
-                updatedEntity.ifPresent(t -> cache.put(id, t));
-            } catch (Exception e) {
-                throw new DaoFwdException("Error updating entity: " + id, e);
-            }
-        }
-        return result;
+        return delegate.update(dbNamespace, id, updater);
     }
 
     /**
@@ -152,11 +151,6 @@ public class CacheableLookupDao<T> extends LookupDao<T> {
      */
     @Override
     public boolean exists(String key) throws Exception {
-        if (cache.exists(key)) {
-            return true;
-        }
-        Optional<T> entity = super.get(key);
-        entity.ifPresent(t -> cache.put(key, t));
-        return entity.isPresent();
+        return delegate.exists(dbNamespace, key);
     }
 }

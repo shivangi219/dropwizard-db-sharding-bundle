@@ -29,6 +29,7 @@ import org.hibernate.validator.constraints.NotEmpty;
 import javax.validation.Valid;
 import javax.validation.constraints.NotNull;
 import java.util.List;
+import java.util.Map;
 
 /**
  * {@summary Config for shards hibernate factory.
@@ -43,6 +44,7 @@ import java.util.List;
 @NoArgsConstructor
 @Builder
 public class ShardedHibernateFactory {
+
     @NotNull
     @NotEmpty
     @Valid
@@ -57,4 +59,5 @@ public class ShardedHibernateFactory {
 
     @Valid
     private MetricConfig metricConfig;
+
 }

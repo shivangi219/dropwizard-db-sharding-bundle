@@ -25,7 +25,7 @@ import io.appform.dropwizard.sharding.admin.UnblacklistShardTask;
 import io.appform.dropwizard.sharding.caching.LookupCache;
 import io.appform.dropwizard.sharding.caching.RelationalCache;
 import io.appform.dropwizard.sharding.config.MetricConfig;
-import io.appform.dropwizard.sharding.config.MultiTenantShardedHibernateFactory;
+import io.appform.dropwizard.sharding.config.ShardedHibernateFactoryConfigProvider;
 import io.appform.dropwizard.sharding.config.ShardingBundleOptions;
 import io.appform.dropwizard.sharding.dao.MultiTenantCacheableLookupDao;
 import io.appform.dropwizard.sharding.dao.MultiTenantCacheableRelationalDao;
@@ -58,12 +58,6 @@ import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import lombok.val;
 import org.hibernate.SessionFactory;
-import org.jasypt.encryption.pbe.StandardPBEBigDecimalEncryptor;
-import org.jasypt.encryption.pbe.StandardPBEBigIntegerEncryptor;
-import org.jasypt.encryption.pbe.StandardPBEByteEncryptor;
-import org.jasypt.encryption.pbe.StandardPBEStringEncryptor;
-import org.jasypt.hibernate5.encryptor.HibernatePBEEncryptorRegistry;
-import org.jasypt.iv.StringFixedIvGenerator;
 
 /**
  * Base for Multi-Tenant sharding bundles. Clients cannot use this. Use one of the derived classes.
@@ -106,8 +100,8 @@ public abstract class MultiTenantDBShardingBundleBase<T extends Configuration> e
 
   @Override
   public void run(T configuration, Environment environment) {
-    val tenantedConfig = getConfig(configuration);
-    tenantedConfig.getTenants().forEach((tenantId, shardConfig) -> {
+    val tenantedConfig = getConfigProvider(configuration);
+    tenantedConfig.listAll().forEach((tenantId, shardConfig) -> {
       var blacklistingStore = getBlacklistingStore();
       var shardManager = createShardManager(shardConfig.getShards().size(), blacklistingStore);
       this.shardManagers.put(tenantId, shardManager);
@@ -200,16 +194,17 @@ public abstract class MultiTenantDBShardingBundleBase<T extends Configuration> e
         .collect(Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue().status()));
   }
 
-  protected abstract MultiTenantShardedHibernateFactory getConfig(T config);
+  protected abstract ShardedHibernateFactoryConfigProvider getConfigProvider(T config);
 
   protected Supplier<MetricConfig> getMetricConfig(String tenantId, T config) {
-    return () -> getConfig(config).getTenants().get(tenantId).getMetricConfig();
+    return () -> getConfigProvider(config).getForTenant(tenantId).getMetricConfig();
   }
 
   private ShardingBundleOptions getShardingOptions(String tenantId, T configuration) {
-    Preconditions.checkArgument(getConfig(configuration).getTenants().containsKey(tenantId),
+    val shardedHibernateFactory = getConfigProvider(configuration).getForTenant(tenantId);
+    Preconditions.checkArgument(shardedHibernateFactory != null,
         "Unknown tenant: " + tenantId);
-    val options = getConfig(configuration).config(tenantId).getShardingOptions();
+    val options = shardedHibernateFactory.getShardingOptions();
     return Objects.nonNull(options) ? options : new ShardingBundleOptions();
   }
 
@@ -316,10 +311,10 @@ public abstract class MultiTenantDBShardingBundleBase<T extends Configuration> e
   WrapperDao<EntityType, DaoType> createWrapperDao(String tenantId, Class<DaoType> daoTypeClass) {
     Preconditions.checkArgument(this.sessionFactories.containsKey(tenantId),
         "Unknown tenant: " + tenantId);
-    return new WrapperDao<>(this.sessionFactories.get(tenantId),
+    return new WrapperDao<>(tenantId, this.sessionFactories.get(tenantId),
         daoTypeClass,
-        new ShardCalculator<>(this.shardManagers.get(tenantId),
-            new ConsistentHashBucketIdExtractor<>(this.shardManagers.get(tenantId))));
+        new ShardCalculator<>(this.shardManagers,
+            new ConsistentHashBucketIdExtractor<>(this.shardManagers)));
   }
 
   public <EntityType, DaoType extends AbstractDAO<EntityType>, T extends Configuration>
@@ -328,9 +323,9 @@ public abstract class MultiTenantDBShardingBundleBase<T extends Configuration> e
       BucketIdExtractor<String> bucketIdExtractor) {
     Preconditions.checkArgument(this.sessionFactories.containsKey(tenantId),
         "Unknown tenant: " + tenantId);
-    return new WrapperDao<>(this.sessionFactories.get(tenantId),
+    return new WrapperDao<>(tenantId, this.sessionFactories.get(tenantId),
         daoTypeClass,
-        new ShardCalculator<>(this.shardManagers.get(tenantId), bucketIdExtractor));
+        new ShardCalculator<>(this.shardManagers, bucketIdExtractor));
   }
 
   public <EntityType, DaoType extends AbstractDAO<EntityType>, T extends Configuration>
@@ -340,9 +335,9 @@ public abstract class MultiTenantDBShardingBundleBase<T extends Configuration> e
       Class[] extraConstructorParamObjects) {
     Preconditions.checkArgument(this.sessionFactories.containsKey(tenantId),
         "Unknown tenant: " + tenantId);
-    return new WrapperDao<>(this.sessionFactories.get(tenantId), daoTypeClass,
+    return new WrapperDao<>(tenantId, this.sessionFactories.get(tenantId), daoTypeClass,
         extraConstructorParamClasses, extraConstructorParamObjects,
-        new ShardCalculator<>(this.shardManagers.get(tenantId),
-            new ConsistentHashBucketIdExtractor<>(this.shardManagers.get(tenantId))));
+        new ShardCalculator<>(this.shardManagers,
+            new ConsistentHashBucketIdExtractor<>(this.shardManagers)));
   }
 }

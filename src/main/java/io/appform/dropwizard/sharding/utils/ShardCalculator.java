@@ -17,6 +17,7 @@
 
 package io.appform.dropwizard.sharding.utils;
 
+import io.appform.dropwizard.sharding.DBShardingBundleBase;
 import io.appform.dropwizard.sharding.sharding.BucketIdExtractor;
 import io.appform.dropwizard.sharding.sharding.ShardManager;
 import java.util.Collections;
@@ -29,25 +30,20 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class ShardCalculator<T> {
 
-    private final ShardManager shardManager;
     private final Map<String, ShardManager> shardManagers;
     private final BucketIdExtractor<T> extractor;
 
     public ShardCalculator(ShardManager shardManager, BucketIdExtractor<T> extractor) {
-        this.shardManager = shardManager;
-        this.shardManagers = Collections.emptyMap();
-        this.extractor = extractor;
+        this(Map.of(DBShardingBundleBase.DEFAULT_NAMESPACE, shardManager), extractor);
     }
 
     public ShardCalculator(Map<String, ShardManager> shardManagers, BucketIdExtractor<T> extractor) {
         this.shardManagers = shardManagers;
-        this.shardManager = null;
         this.extractor = extractor;
     }
 
     public int shardId(T key) {
-        int bucketId = extractor.bucketId(key);
-        return shardManager.shardForBucket(bucketId);
+        return shardId(DBShardingBundleBase.DEFAULT_NAMESPACE, key);
     }
 
     public int shardId(String tenantId, T key) {
@@ -57,6 +53,6 @@ public class ShardCalculator<T> {
 
     public boolean isOnValidShard(T key) {
         int bucketId = extractor.bucketId(key);
-        return shardManager.isMappedToValidShard(bucketId);
+        return shardManagers.get(DBShardingBundleBase.DEFAULT_NAMESPACE).isMappedToValidShard(bucketId);
     }
 }

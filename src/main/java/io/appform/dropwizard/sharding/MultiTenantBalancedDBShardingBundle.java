@@ -17,11 +17,16 @@
 
 package io.appform.dropwizard.sharding;
 
+import io.appform.dropwizard.sharding.config.MultiTenantShardedHibernateFactory;
+import io.appform.dropwizard.sharding.config.ShardedHibernateFactory;
+import io.appform.dropwizard.sharding.config.ShardedHibernateFactoryConfigProvider;
 import io.appform.dropwizard.sharding.sharding.BalancedShardManager;
 import io.appform.dropwizard.sharding.sharding.ShardBlacklistingStore;
 import io.appform.dropwizard.sharding.sharding.ShardManager;
 import io.dropwizard.Configuration;
 import lombok.extern.slf4j.Slf4j;
+
+import java.util.Map;
 
 /**
  * A dropwizard bundle that provides sharding over normal RDBMS with multi tenancy.
@@ -39,9 +44,26 @@ public abstract class MultiTenantBalancedDBShardingBundle<T extends Configuratio
   }
 
   @Override
+  protected ShardedHibernateFactoryConfigProvider getConfigProvider(T config) {
+    return new ShardedHibernateFactoryConfigProvider() {
+      @Override
+      public ShardedHibernateFactory getForTenant(String tenantId) {
+        return getConfig(config).config(tenantId);
+      }
+
+      @Override
+      public Map<String, ShardedHibernateFactory> listAll() {
+        return getConfig(config).getTenants();
+      }
+    };
+  }
+
+  @Override
   protected ShardManager createShardManager(int numShards,
       ShardBlacklistingStore shardBlacklistingStore) {
     return new BalancedShardManager(numShards, shardBlacklistingStore);
   }
+
+  protected abstract MultiTenantShardedHibernateFactory getConfig(T config);
 
 }
