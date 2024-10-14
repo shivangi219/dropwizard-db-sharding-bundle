@@ -52,7 +52,7 @@ public abstract class DBShardingBundle<T extends Configuration> extends DBShardi
     }
 
     @Override
-    protected ShardManager createShardManager(int numShards, ShardBlacklistingStore blacklistingStore) {
+    final protected ShardManager createShardManager(int numShards, ShardBlacklistingStore blacklistingStore) {
         return new LegacyShardManager(numShards, blacklistingStore);
     }
 
