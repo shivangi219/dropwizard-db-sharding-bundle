@@ -44,7 +44,7 @@ public abstract class MultiTenantBalancedDBShardingBundle<T extends Configuratio
   }
 
   @Override
-  protected ShardedHibernateFactoryConfigProvider getConfigProvider(T config) {
+  final protected ShardedHibernateFactoryConfigProvider getConfigProvider(T config) {
     return new ShardedHibernateFactoryConfigProvider() {
       @Override
       public ShardedHibernateFactory getForTenant(String tenantId) {
@@ -59,7 +59,7 @@ public abstract class MultiTenantBalancedDBShardingBundle<T extends Configuratio
   }
 
   @Override
-  protected ShardManager createShardManager(int numShards,
+  final protected ShardManager createShardManager(int numShards,
       ShardBlacklistingStore shardBlacklistingStore) {
     return new BalancedShardManager(numShards, shardBlacklistingStore);
   }

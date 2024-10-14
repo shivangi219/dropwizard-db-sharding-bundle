@@ -43,7 +43,6 @@ import java.util.List;
 @NoArgsConstructor
 @Builder
 public class ShardedHibernateFactory {
-
     @NotNull
     @NotEmpty
     @Valid
@@ -58,5 +57,4 @@ public class ShardedHibernateFactory {
 
     @Valid
     private MetricConfig metricConfig;
-
 }
