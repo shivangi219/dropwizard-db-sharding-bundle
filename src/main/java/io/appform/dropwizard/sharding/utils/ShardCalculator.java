@@ -19,9 +19,10 @@ package io.appform.dropwizard.sharding.utils;
 
 import io.appform.dropwizard.sharding.sharding.BucketIdExtractor;
 import io.appform.dropwizard.sharding.sharding.ShardManager;
+import lombok.extern.slf4j.Slf4j;
+
 import java.util.Collections;
 import java.util.Map;
-import lombok.extern.slf4j.Slf4j;
 
 /**
  * Utility class for calculating shards.

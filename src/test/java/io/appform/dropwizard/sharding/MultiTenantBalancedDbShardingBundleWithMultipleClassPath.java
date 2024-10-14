@@ -17,8 +17,6 @@
 
 package io.appform.dropwizard.sharding;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-
 import io.appform.dropwizard.sharding.caching.LookupCache;
 import io.appform.dropwizard.sharding.config.MultiTenantShardedHibernateFactory;
 import io.appform.dropwizard.sharding.dao.MultiTenantCacheableLookupDao;
@@ -26,10 +24,13 @@ import io.appform.dropwizard.sharding.dao.MultiTenantLookupDao;
 import io.appform.dropwizard.sharding.dao.testdata.entities.TestEntity;
 import io.appform.dropwizard.sharding.dao.testdata.multi.MultiPackageTestEntity;
 import io.appform.dropwizard.sharding.sharding.impl.ConsistentHashBucketIdExtractor;
+import org.junit.jupiter.api.Test;
+
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
-import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class MultiTenantBalancedDbShardingBundleWithMultipleClassPath extends MultiTenantDBShardingBundleTestBase {
 

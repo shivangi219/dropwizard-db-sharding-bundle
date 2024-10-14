@@ -1,8 +1,5 @@
 package io.appform.dropwizard.sharding;
 
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
-
 import com.codahale.metrics.health.HealthCheckRegistry;
 import com.google.common.collect.Maps;
 import io.appform.dropwizard.sharding.config.MultiTenantShardedHibernateFactory;
@@ -16,10 +13,14 @@ import io.dropwizard.lifecycle.setup.LifecycleEnvironment;
 import io.dropwizard.setup.AdminEnvironment;
 import io.dropwizard.setup.Bootstrap;
 import io.dropwizard.setup.Environment;
-import java.util.List;
-import java.util.Map;
 import lombok.Getter;
 import org.junit.jupiter.api.BeforeEach;
+
+import java.util.List;
+import java.util.Map;
+
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 
 public abstract class MultiTenantBundleBasedTestBase {

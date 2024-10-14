@@ -17,11 +17,6 @@ import io.appform.dropwizard.sharding.sharding.InMemoryLocalShardBlacklistingSto
 import io.appform.dropwizard.sharding.sharding.ShardBlacklistingStore;
 import io.dropwizard.Configuration;
 import io.dropwizard.ConfiguredBundle;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Objects;
-import java.util.Set;
-import javax.persistence.Entity;
 import lombok.extern.slf4j.Slf4j;
 import org.jasypt.encryption.pbe.StandardPBEBigDecimalEncryptor;
 import org.jasypt.encryption.pbe.StandardPBEBigIntegerEncryptor;
@@ -30,6 +25,12 @@ import org.jasypt.encryption.pbe.StandardPBEStringEncryptor;
 import org.jasypt.hibernate5.encryptor.HibernatePBEEncryptorRegistry;
 import org.jasypt.iv.StringFixedIvGenerator;
 import org.reflections.Reflections;
+
+import javax.persistence.Entity;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
+import java.util.Set;
 
 @Slf4j
 public abstract class BundleCommonBase<T extends Configuration> implements ConfiguredBundle<T> {

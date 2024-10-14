@@ -21,10 +21,7 @@ import io.appform.dropwizard.sharding.ShardInfoProvider;
 import io.appform.dropwizard.sharding.dao.operations.OpContext;
 import io.appform.dropwizard.sharding.observers.TransactionObserver;
 import io.appform.dropwizard.sharding.utils.TransactionHandler;
-import java.util.Optional;
-import java.util.function.Function;
 import lombok.val;
-import org.hibernate.Session;
 import org.hibernate.SessionFactory;
 
 /**
