@@ -17,11 +17,9 @@
 
 package io.appform.dropwizard.sharding.dao;
 
-import com.google.common.base.Preconditions;
 import io.appform.dropwizard.sharding.DBShardingBundleBase;
 import io.appform.dropwizard.sharding.ShardInfoProvider;
 import io.appform.dropwizard.sharding.config.ShardingBundleOptions;
-import io.appform.dropwizard.sharding.execution.TransactionExecutor;
 import io.appform.dropwizard.sharding.observers.TransactionObserver;
 import io.appform.dropwizard.sharding.query.QuerySpec;
 import io.appform.dropwizard.sharding.scroll.ScrollPointer;
@@ -32,13 +30,11 @@ import lombok.Getter;
 import lombok.NonNull;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang3.reflect.FieldUtils;
 import org.hibernate.Criteria;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
 import org.hibernate.criterion.DetachedCriteria;
 
-import javax.persistence.Id;
 import java.lang.reflect.Field;
 import java.util.Collection;
 import java.util.List;
@@ -51,8 +47,6 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
-
-import static io.appform.dropwizard.sharding.query.QueryUtils.equalityFilter;
 
 /**
  * A dao used to work with entities related to a parent shard. The parent may or maynot be physically present.

@@ -1,12 +1,13 @@
 package io.appform.dropwizard.sharding.config;
 
 import com.google.common.collect.Maps;
-import java.util.Map;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Builder.Default;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+
+import java.util.Map;
 
 /**
  * {@summary Config for a tenanted shards hibernate factory.

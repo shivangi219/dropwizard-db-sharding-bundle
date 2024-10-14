@@ -7,6 +7,11 @@ import io.appform.dropwizard.sharding.execution.TransactionExecutionContext;
 import io.appform.dropwizard.sharding.observers.TransactionObserver;
 import io.appform.dropwizard.sharding.query.QuerySpec;
 import io.appform.dropwizard.sharding.utils.TransactionHandler;
+import lombok.Getter;
+import lombok.val;
+import org.hibernate.SessionFactory;
+import org.hibernate.criterion.DetachedCriteria;
+
 import java.util.List;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
@@ -14,13 +19,6 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.function.UnaryOperator;
-import lombok.Getter;
-import lombok.val;
-import org.hibernate.SessionFactory;
-import org.hibernate.criterion.DetachedCriteria;
-
-import java.util.List;
-import java.util.function.*;
 
 /**
  * The `LockedContext` class encapsulates the context for locked operations on an entity in a specific shard.

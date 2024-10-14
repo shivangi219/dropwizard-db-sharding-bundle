@@ -1,7 +1,6 @@
 package io.appform.dropwizard.sharding.metrics;
 
 import com.codahale.metrics.Timer;
-import com.google.common.collect.ImmutableList;
 import io.appform.dropwizard.sharding.dao.operations.lockedcontext.LockAndExecute;
 import io.appform.dropwizard.sharding.execution.TransactionExecutionContext;
 import io.appform.dropwizard.sharding.observers.TransactionObserver;

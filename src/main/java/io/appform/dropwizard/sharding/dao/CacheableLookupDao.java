@@ -25,7 +25,6 @@ import io.appform.dropwizard.sharding.exceptions.DaoFwdException;
 import io.appform.dropwizard.sharding.observers.TransactionObserver;
 import io.appform.dropwizard.sharding.sharding.LookupKey;
 import io.appform.dropwizard.sharding.utils.ShardCalculator;
-import lombok.Builder;
 import lombok.extern.slf4j.Slf4j;
 import org.hibernate.SessionFactory;
 

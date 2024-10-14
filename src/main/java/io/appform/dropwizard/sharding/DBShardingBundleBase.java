@@ -39,14 +39,13 @@ import io.dropwizard.ConfiguredBundle;
 import io.dropwizard.hibernate.AbstractDAO;
 import io.dropwizard.setup.Bootstrap;
 import io.dropwizard.setup.Environment;
+import lombok.Getter;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
-
-import lombok.Getter;
-import lombok.extern.slf4j.Slf4j;
 
 /**
  * Base for bundles. This cannot be used by clients. Use one of the derived classes.
