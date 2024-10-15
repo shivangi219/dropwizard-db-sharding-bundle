@@ -55,5 +55,4 @@ public abstract class BalancedDBShardingBundle<T extends Configuration> extends 
         return new BalancedShardManager(numShards, shardBlacklistingStore);
     }
 
-
 }

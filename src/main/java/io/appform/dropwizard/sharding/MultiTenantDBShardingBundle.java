@@ -18,8 +18,6 @@
 package io.appform.dropwizard.sharding;
 
 import io.appform.dropwizard.sharding.config.MultiTenantShardedHibernateFactory;
-import io.appform.dropwizard.sharding.config.ShardedHibernateFactory;
-import io.appform.dropwizard.sharding.config.ShardedHibernateFactoryConfigProvider;
 import io.appform.dropwizard.sharding.sharding.LegacyShardManager;
 import io.appform.dropwizard.sharding.sharding.ShardBlacklistingStore;
 import io.appform.dropwizard.sharding.sharding.ShardManager;
@@ -52,21 +50,6 @@ public abstract class MultiTenantDBShardingBundle<T extends Configuration> exten
     final protected ShardManager createShardManager(int numShards,
                                               ShardBlacklistingStore blacklistingStore) {
         return new LegacyShardManager(numShards, blacklistingStore);
-    }
-
-    @Override
-    final protected ShardedHibernateFactoryConfigProvider getConfigProvider(T config) {
-        return new ShardedHibernateFactoryConfigProvider() {
-            @Override
-            public ShardedHibernateFactory getForTenant(String tenantId) {
-                return getConfig(config).config(tenantId);
-            }
-
-            @Override
-            public Map<String, ShardedHibernateFactory> listAll() {
-                return getConfig(config).getTenants();
-            }
-        };
     }
 
     protected abstract MultiTenantShardedHibernateFactory getConfig(T config);

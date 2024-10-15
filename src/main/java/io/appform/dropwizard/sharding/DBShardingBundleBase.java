@@ -21,8 +21,8 @@ import com.google.common.annotations.VisibleForTesting;
 import io.appform.dropwizard.sharding.caching.LookupCache;
 import io.appform.dropwizard.sharding.caching.RelationalCache;
 import io.appform.dropwizard.sharding.config.MetricConfig;
+import io.appform.dropwizard.sharding.config.MultiTenantShardedHibernateFactory;
 import io.appform.dropwizard.sharding.config.ShardedHibernateFactory;
-import io.appform.dropwizard.sharding.config.ShardedHibernateFactoryConfigProvider;
 import io.appform.dropwizard.sharding.dao.CacheableLookupDao;
 import io.appform.dropwizard.sharding.dao.CacheableRelationalDao;
 import io.appform.dropwizard.sharding.dao.LookupDao;
@@ -81,18 +81,10 @@ public abstract class DBShardingBundleBase<T extends Configuration> implements C
             }
 
             @Override
-            protected ShardedHibernateFactoryConfigProvider getConfigProvider(T config) {
-                return new ShardedHibernateFactoryConfigProvider() {
-                    @Override
-                    public ShardedHibernateFactory getForTenant(String tenantId) {
-                        return getConfig(config);
-                    }
-
-                    @Override
-                    public Map<String, ShardedHibernateFactory> listAll() {
-                        return Map.of(dbNamespace, getConfig(config));
-                    }
-                };
+            protected MultiTenantShardedHibernateFactory getConfig(T config) {
+                return new MultiTenantShardedHibernateFactory(
+                        Map.of(dbNamespace, DBShardingBundleBase.this.getConfig(config))
+                );
             }
         };
     }
@@ -106,18 +98,10 @@ public abstract class DBShardingBundleBase<T extends Configuration> implements C
             }
 
             @Override
-            protected ShardedHibernateFactoryConfigProvider getConfigProvider(T config) {
-                return new ShardedHibernateFactoryConfigProvider() {
-                    @Override
-                    public ShardedHibernateFactory getForTenant(String tenantId) {
-                        return getConfig(config);
-                    }
-
-                    @Override
-                    public Map<String, ShardedHibernateFactory> listAll() {
-                        return Map.of(dbNamespace, getConfig(config));
-                    }
-                };
+            protected MultiTenantShardedHibernateFactory getConfig(T config) {
+                return new MultiTenantShardedHibernateFactory(
+                        Map.of(dbNamespace, DBShardingBundleBase.this.getConfig(config))
+                );
             }
         };
     }
@@ -248,15 +232,15 @@ public abstract class DBShardingBundleBase<T extends Configuration> implements C
         return delegate.getShardManagers().get(dbNamespace);
     }
 
-    public void registerObserver(TransactionObserver transactionObserver){
+    public void registerObserver(TransactionObserver transactionObserver) {
         delegate.registerObserver(transactionObserver);
     }
 
-    public void registerListener(TransactionListener transactionListener){
+    public void registerListener(TransactionListener transactionListener) {
         delegate.registerListener(transactionListener);
     }
 
-    public void registerFilter(TransactionFilter transactionFilter){
+    public void registerFilter(TransactionFilter transactionFilter) {
         delegate.registerFilter(transactionFilter);
     }
 }

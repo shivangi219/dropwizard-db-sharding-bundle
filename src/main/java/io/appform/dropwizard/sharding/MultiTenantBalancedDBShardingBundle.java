@@ -18,8 +18,6 @@
 package io.appform.dropwizard.sharding;
 
 import io.appform.dropwizard.sharding.config.MultiTenantShardedHibernateFactory;
-import io.appform.dropwizard.sharding.config.ShardedHibernateFactory;
-import io.appform.dropwizard.sharding.config.ShardedHibernateFactoryConfigProvider;
 import io.appform.dropwizard.sharding.sharding.BalancedShardManager;
 import io.appform.dropwizard.sharding.sharding.ShardBlacklistingStore;
 import io.appform.dropwizard.sharding.sharding.ShardManager;
@@ -33,37 +31,22 @@ import java.util.Map;
  */
 @Slf4j
 public abstract class MultiTenantBalancedDBShardingBundle<T extends Configuration> extends
-    MultiTenantDBShardingBundleBase<T> {
+        MultiTenantDBShardingBundleBase<T> {
 
-  protected MultiTenantBalancedDBShardingBundle(Class<?> entity, Class<?>... entities) {
-    super(entity, entities);
-  }
+    protected MultiTenantBalancedDBShardingBundle(Class<?> entity, Class<?>... entities) {
+        super(entity, entities);
+    }
 
-  protected MultiTenantBalancedDBShardingBundle(String... classPathPrefixes) {
-    super(classPathPrefixes);
-  }
+    protected MultiTenantBalancedDBShardingBundle(String... classPathPrefixes) {
+        super(classPathPrefixes);
+    }
 
-  @Override
-  final protected ShardedHibernateFactoryConfigProvider getConfigProvider(T config) {
-    return new ShardedHibernateFactoryConfigProvider() {
-      @Override
-      public ShardedHibernateFactory getForTenant(String tenantId) {
-        return getConfig(config).config(tenantId);
-      }
+    @Override
+    final protected ShardManager createShardManager(int numShards,
+                                                    ShardBlacklistingStore shardBlacklistingStore) {
+        return new BalancedShardManager(numShards, shardBlacklistingStore);
+    }
 
-      @Override
-      public Map<String, ShardedHibernateFactory> listAll() {
-        return getConfig(config).getTenants();
-      }
-    };
-  }
-
-  @Override
-  final protected ShardManager createShardManager(int numShards,
-      ShardBlacklistingStore shardBlacklistingStore) {
-    return new BalancedShardManager(numShards, shardBlacklistingStore);
-  }
-
-  protected abstract MultiTenantShardedHibernateFactory getConfig(T config);
+    protected abstract MultiTenantShardedHibernateFactory getConfig(T config);
 
 }

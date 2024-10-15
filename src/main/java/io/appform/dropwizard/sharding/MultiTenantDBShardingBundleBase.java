@@ -25,7 +25,7 @@ import io.appform.dropwizard.sharding.admin.UnblacklistShardTask;
 import io.appform.dropwizard.sharding.caching.LookupCache;
 import io.appform.dropwizard.sharding.caching.RelationalCache;
 import io.appform.dropwizard.sharding.config.MetricConfig;
-import io.appform.dropwizard.sharding.config.ShardedHibernateFactoryConfigProvider;
+import io.appform.dropwizard.sharding.config.MultiTenantShardedHibernateFactory;
 import io.appform.dropwizard.sharding.config.ShardingBundleOptions;
 import io.appform.dropwizard.sharding.dao.MultiTenantCacheableLookupDao;
 import io.appform.dropwizard.sharding.dao.MultiTenantCacheableRelationalDao;
@@ -101,8 +101,8 @@ public abstract class MultiTenantDBShardingBundleBase<T extends Configuration> e
 
   @Override
   public void run(T configuration, Environment environment) {
-    val tenantedConfig = getConfigProvider(configuration);
-    tenantedConfig.listAll().forEach((tenantId, shardConfig) -> {
+    val tenantedConfig = getConfig(configuration);
+    tenantedConfig.getTenants().forEach((tenantId, shardConfig) -> {
       var blacklistingStore = getBlacklistingStore();
       var shardManager = createShardManager(shardConfig.getShards().size(), blacklistingStore);
       this.shardManagers.put(tenantId, shardManager);
@@ -195,14 +195,14 @@ public abstract class MultiTenantDBShardingBundleBase<T extends Configuration> e
         .collect(Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue().status()));
   }
 
-  protected abstract ShardedHibernateFactoryConfigProvider getConfigProvider(T config);
+  protected abstract MultiTenantShardedHibernateFactory getConfig(T config);
 
   protected Supplier<MetricConfig> getMetricConfig(String tenantId, T config) {
-    return () -> getConfigProvider(config).getForTenant(tenantId).getMetricConfig();
+    return () -> getConfig(config).config(tenantId).getMetricConfig();
   }
 
   private ShardingBundleOptions getShardingOptions(String tenantId, T configuration) {
-    val shardedHibernateFactory = getConfigProvider(configuration).getForTenant(tenantId);
+    val shardedHibernateFactory = getConfig(configuration).config(tenantId);
     Preconditions.checkArgument(shardedHibernateFactory != null,
         "Unknown tenant: " + tenantId);
     val options = shardedHibernateFactory.getShardingOptions();
