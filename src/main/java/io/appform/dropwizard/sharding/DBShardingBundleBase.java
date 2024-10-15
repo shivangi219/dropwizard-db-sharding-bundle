@@ -74,11 +74,10 @@ public abstract class DBShardingBundleBase<T extends Configuration> implements C
             Class<?> entity,
             Class<?>... entities) {
         this.dbNamespace = dbNamespace;
-        final ShardManagerFactory shardManagerFactory = this::createShardManager;
         this.delegate = new MultiTenantDBShardingBundleBase<T>(entity, entities) {
             @Override
             protected ShardManager createShardManager(int numShards, ShardBlacklistingStore blacklistingStore) {
-                return shardManagerFactory.create(numShards, blacklistingStore);
+                return DBShardingBundleBase.this.createShardManager(numShards, blacklistingStore);
             }
 
             @Override
@@ -100,11 +99,10 @@ public abstract class DBShardingBundleBase<T extends Configuration> implements C
 
     protected DBShardingBundleBase(String dbNamespace, List<String> classPathPrefixList) {
         this.dbNamespace = dbNamespace;
-        final ShardManagerFactory shardManagerFactory = this::createShardManager;
         this.delegate = new MultiTenantDBShardingBundleBase<T>(classPathPrefixList) {
             @Override
             protected ShardManager createShardManager(int numShards, ShardBlacklistingStore blacklistingStore) {
-                return shardManagerFactory.create(numShards, blacklistingStore);
+                return DBShardingBundleBase.this.createShardManager(numShards, blacklistingStore);
             }
 
             @Override
@@ -140,7 +138,7 @@ public abstract class DBShardingBundleBase<T extends Configuration> implements C
 
     @VisibleForTesting
     public void runBundles(T configuration, Environment environment) {
-        delegate.run(configuration, environment);
+        delegate.runBundles(configuration, environment);
     }
 
     @VisibleForTesting
@@ -158,7 +156,6 @@ public abstract class DBShardingBundleBase<T extends Configuration> implements C
     protected Supplier<MetricConfig> getMetricConfig(T config) {
         return () -> getConfig(config).getMetricConfig();
     }
-
 
     public <EntityType, T extends Configuration>
     LookupDao<EntityType> createParentObjectDao(Class<EntityType> clazz) {
@@ -245,14 +242,6 @@ public abstract class DBShardingBundleBase<T extends Configuration> implements C
             Class[] extraConstructorParamClasses,
             Class[] extraConstructorParamObjects) {
         return delegate.createWrapperDao(dbNamespace, daoTypeClass, extraConstructorParamClasses, extraConstructorParamObjects);
-    }
-
-    private interface ShardManagerFactory {
-
-        ShardManager create(final int numShards,
-                            final ShardBlacklistingStore blacklistingStore);
-
-
     }
 
     final ShardManager getShardManager() {

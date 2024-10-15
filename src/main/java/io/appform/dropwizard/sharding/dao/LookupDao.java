@@ -57,14 +57,14 @@ import java.util.function.UnaryOperator;
 @Slf4j
 public class LookupDao<T> implements ShardedDao<T> {
 
-    private final String tenantId;
+    private final String dbNamespace;
 
-    private final MultiTenantLookupDao<T> multiTenantLookupDao;
+    private final MultiTenantLookupDao<T> delegate;
 
-    public LookupDao(final String tenantId,
-                     final MultiTenantLookupDao<T> multiTenantLookupDao) {
-        this.tenantId = tenantId;
-        this.multiTenantLookupDao = multiTenantLookupDao;
+    public LookupDao(final String dbNamespace,
+                     final MultiTenantLookupDao<T> delegate) {
+        this.dbNamespace = dbNamespace;
+        this.delegate = delegate;
     }
 
     /**
@@ -90,13 +90,13 @@ public class LookupDao<T> implements ShardedDao<T> {
             ShardingBundleOptions shardingOptions,
             final ShardInfoProvider shardInfoProvider,
             final TransactionObserver observer) {
-        this.tenantId = DBShardingBundleBase.DEFAULT_NAMESPACE;
-        this.multiTenantLookupDao = new MultiTenantLookupDao<>(
-                Map.of(tenantId, sessionFactories),
+        this.dbNamespace = DBShardingBundleBase.DEFAULT_NAMESPACE;
+        this.delegate = new MultiTenantLookupDao<>(
+                Map.of(dbNamespace, sessionFactories),
                 entityClass,
                 shardCalculator,
-                Map.of(tenantId, shardingOptions),
-                Map.of(tenantId, shardInfoProvider),
+                Map.of(dbNamespace, shardingOptions),
+                Map.of(dbNamespace, shardInfoProvider),
                 observer
         );
     }
@@ -131,13 +131,13 @@ public class LookupDao<T> implements ShardedDao<T> {
      * @throws Exception if backing dao throws
      */
     public <U> U get(String key, Function<T, U> handler) throws Exception {
-        return multiTenantLookupDao.get(tenantId, key, handler);
+        return delegate.get(dbNamespace, key, handler);
     }
 
     @SuppressWarnings("java:S112")
     public <U> U get(String key, UnaryOperator<Criteria> criteriaUpdater, Function<T, U> handler)
             throws Exception {
-        return multiTenantLookupDao.get(tenantId, key, criteriaUpdater, handler);
+        return delegate.get(dbNamespace, key, criteriaUpdater, handler);
     }
 
     /**
@@ -179,14 +179,14 @@ public class LookupDao<T> implements ShardedDao<T> {
      * @throws Exception if backing dao throws
      */
     public <U> U save(T entity, Function<T, U> handler) throws Exception {
-        return multiTenantLookupDao.save(tenantId, entity, handler);
+        return delegate.save(dbNamespace, entity, handler);
     }
 
     public Optional<T> createOrUpdate(
             String id,
             UnaryOperator<T> updater,
             Supplier<T> entityGenerator) {
-        return multiTenantLookupDao.createOrUpdate(tenantId, id, updater, entityGenerator);
+        return delegate.createOrUpdate(dbNamespace, id, updater, entityGenerator);
     }
 
 
@@ -202,7 +202,7 @@ public class LookupDao<T> implements ShardedDao<T> {
      * @return True if the update was successful, false otherwise.
      */
     public boolean updateInLock(String id, Function<Optional<T>, T> updater) {
-        return multiTenantLookupDao.updateInLock(tenantId, id, updater);
+        return delegate.updateInLock(dbNamespace, id, updater);
     }
 
     /**
@@ -219,7 +219,7 @@ public class LookupDao<T> implements ShardedDao<T> {
      * @return {@code true} if the entity is successfully updated, {@code false} if it does not exist.
      */
     public boolean update(String id, Function<Optional<T>, T> updater) {
-        return multiTenantLookupDao.update(tenantId, id, updater);
+        return delegate.update(dbNamespace, id, updater);
     }
 
     /**
@@ -237,7 +237,7 @@ public class LookupDao<T> implements ShardedDao<T> {
      * @return The number of entities affected by the update operation.
      */
     public int updateUsingQuery(String id, UpdateOperationMeta updateOperationMeta) {
-        return multiTenantLookupDao.updateUsingQuery(tenantId, id, updateOperationMeta);
+        return delegate.updateUsingQuery(dbNamespace, id, updateOperationMeta);
     }
 
 
@@ -253,7 +253,7 @@ public class LookupDao<T> implements ShardedDao<T> {
      * @throws java.lang.RuntimeException If an error occurs during entity locking or transaction management.
      */
     public LockedContext<T> lockAndGetExecutor(final String id) {
-        return multiTenantLookupDao.lockAndGetExecutor(tenantId, id);
+        return delegate.lockAndGetExecutor(dbNamespace, id);
     }
 
     public ReadOnlyContext<T> readOnlyExecutor(String id) {
@@ -272,7 +272,7 @@ public class LookupDao<T> implements ShardedDao<T> {
      * @return A new ReadOnlyContext for executing read operations on the specified entity.
      */
     public ReadOnlyContext<T> readOnlyExecutor(String id, UnaryOperator<Criteria> criteriaUpdater) {
-        return new ReadOnlyContext<>(multiTenantLookupDao.readOnlyExecutor(tenantId, id, criteriaUpdater));
+        return new ReadOnlyContext<>(delegate.readOnlyExecutor(dbNamespace, id, criteriaUpdater));
     }
 
     public ReadOnlyContext<T> readOnlyExecutor(String id, Supplier<Boolean> entityPopulator) {
@@ -296,7 +296,7 @@ public class LookupDao<T> implements ShardedDao<T> {
             String id,
             UnaryOperator<Criteria> criteriaUpdater,
             Supplier<Boolean> entityPopulator) {
-        return new ReadOnlyContext<>(multiTenantLookupDao.readOnlyExecutor(tenantId, id, criteriaUpdater, entityPopulator));
+        return new ReadOnlyContext<>(delegate.readOnlyExecutor(dbNamespace, id, criteriaUpdater, entityPopulator));
     }
 
 
@@ -312,7 +312,7 @@ public class LookupDao<T> implements ShardedDao<T> {
      * @throws java.lang.RuntimeException If an error occurs during entity saving or transaction management.
      */
     public LockedContext<T> saveAndGetExecutor(T entity) {
-        return multiTenantLookupDao.saveAndGetExecutor(tenantId, entity);
+        return delegate.saveAndGetExecutor(dbNamespace, entity);
     }
 
     /**
@@ -326,7 +326,7 @@ public class LookupDao<T> implements ShardedDao<T> {
      * @return A list of entities obtained by executing the query criteria on all available shards.
      */
     public List<T> scatterGather(DetachedCriteria criteria) {
-        return multiTenantLookupDao.scatterGather(tenantId, criteria);
+        return delegate.scatterGather(dbNamespace, criteria);
     }
 
     /**
@@ -343,7 +343,7 @@ public class LookupDao<T> implements ShardedDao<T> {
      * @throws java.lang.RuntimeException If an error occurs while querying the database.
      */
     public List<T> scatterGather(final QuerySpec<T, T> querySpec) {
-        return multiTenantLookupDao.scatterGather(tenantId, querySpec);
+        return delegate.scatterGather(dbNamespace, querySpec);
     }
 
     /**
@@ -370,7 +370,7 @@ public class LookupDao<T> implements ShardedDao<T> {
             final ScrollPointer inPointer,
             final int pageSize,
             @NonNull final String sortFieldName) {
-        return multiTenantLookupDao.scrollDown(tenantId, inCriteria, inPointer, pageSize, sortFieldName);
+        return delegate.scrollDown(dbNamespace, inCriteria, inPointer, pageSize, sortFieldName);
     }
 
     /**
@@ -398,7 +398,7 @@ public class LookupDao<T> implements ShardedDao<T> {
             final ScrollPointer inPointer,
             final int pageSize,
             @NonNull final String sortFieldName) {
-        return multiTenantLookupDao.scrollUp(tenantId, inCriteria, inPointer, pageSize, sortFieldName);
+        return delegate.scrollUp(dbNamespace, inCriteria, inPointer, pageSize, sortFieldName);
     }
 
     /**
@@ -415,7 +415,7 @@ public class LookupDao<T> implements ShardedDao<T> {
      * @throws java.lang.RuntimeException If an error occurs while querying the database.
      */
     public List<Long> count(DetachedCriteria criteria) {
-        return multiTenantLookupDao.count(tenantId, criteria);
+        return delegate.count(dbNamespace, criteria);
     }
 
     /**
@@ -426,7 +426,7 @@ public class LookupDao<T> implements ShardedDao<T> {
      */
     @SuppressWarnings("rawtypes")
     public Map<Integer, List<T>> run(DetachedCriteria criteria) {
-        return multiTenantLookupDao.run(tenantId, criteria);
+        return delegate.run(dbNamespace, criteria);
     }
 
     /**
@@ -439,7 +439,7 @@ public class LookupDao<T> implements ShardedDao<T> {
      */
     @SuppressWarnings("rawtypes")
     public <U> U run(DetachedCriteria criteria, Function<Map<Integer, List<T>>, U> translator) {
-        return multiTenantLookupDao.run(tenantId, criteria, translator);
+        return delegate.run(dbNamespace, criteria, translator);
     }
 
     /**
@@ -454,7 +454,7 @@ public class LookupDao<T> implements ShardedDao<T> {
      * @throws java.lang.RuntimeException If an error occurs while querying the database.
      */
     public List<T> get(List<String> keys) {
-        return multiTenantLookupDao.get(tenantId, keys);
+        return delegate.get(dbNamespace, keys);
     }
 
 
@@ -473,13 +473,13 @@ public class LookupDao<T> implements ShardedDao<T> {
      *                                    the handler.
      */
     public <U> U runInSession(String id, Function<Session, U> handler) {
-        return multiTenantLookupDao.runInSession(tenantId, id, handler);
+        return delegate.runInSession(dbNamespace, id, handler);
     }
 
     public <U, V> V runInSession(
             BiFunction<Integer, Session, U> sessionHandler,
             Function<Map<Integer, U>, V> translator) {
-        return multiTenantLookupDao.runInSession(tenantId, sessionHandler, translator);
+        return delegate.runInSession(dbNamespace, sessionHandler, translator);
     }
 
     /**
@@ -494,7 +494,7 @@ public class LookupDao<T> implements ShardedDao<T> {
      * @throws java.lang.RuntimeException If an error occurs during the delete operation or transaction management.
      */
     public boolean delete(String id) {
-        return multiTenantLookupDao.delete(tenantId, id);
+        return delegate.delete(dbNamespace, id);
     }
 
     /**
@@ -505,12 +505,12 @@ public class LookupDao<T> implements ShardedDao<T> {
      * @return The Field object representing the key field of the entity class.
      */
     protected Field getKeyField() {
-        return multiTenantLookupDao.getKeyField();
+        return delegate.getKeyField();
     }
 
     @Override
     public ShardCalculator<String> getShardCalculator() {
-        return multiTenantLookupDao.getShardCalculator();
+        return delegate.getShardCalculator();
     }
 
 
