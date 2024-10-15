@@ -257,6 +257,7 @@ public class RelationalDaoTest {
     @Test
     public void testSaveWithInterceptors() throws Exception {
         val relationalKey = UUID.randomUUID().toString();
+
         val entityOne = RelationalEntity.builder()
                 .key("1")
                 .keyTwo("1")

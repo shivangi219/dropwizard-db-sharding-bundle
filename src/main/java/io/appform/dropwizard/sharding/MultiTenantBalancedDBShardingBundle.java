@@ -23,7 +23,6 @@ import io.appform.dropwizard.sharding.sharding.ShardManager;
 import io.dropwizard.Configuration;
 import lombok.extern.slf4j.Slf4j;
 
-
 /**
  * A dropwizard bundle that provides sharding over normal RDBMS with multi tenancy.
  */
@@ -41,7 +40,7 @@ public abstract class MultiTenantBalancedDBShardingBundle<T extends Configuratio
 
     @Override
     protected ShardManager createShardManager(int numShards,
-                                                    ShardBlacklistingStore shardBlacklistingStore) {
+                                              ShardBlacklistingStore shardBlacklistingStore) {
         return new BalancedShardManager(numShards, shardBlacklistingStore);
     }
 
