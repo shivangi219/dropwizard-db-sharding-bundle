@@ -40,7 +40,7 @@ public abstract class MultiTenantBalancedDBShardingBundle<T extends Configuratio
     }
 
     @Override
-    final protected ShardManager createShardManager(int numShards,
+    protected ShardManager createShardManager(int numShards,
                                                     ShardBlacklistingStore shardBlacklistingStore) {
         return new BalancedShardManager(numShards, shardBlacklistingStore);
     }

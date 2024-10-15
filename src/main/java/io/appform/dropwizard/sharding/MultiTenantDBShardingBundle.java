@@ -45,7 +45,7 @@ public abstract class MultiTenantDBShardingBundle<T extends Configuration> exten
     }
 
     @Override
-    final protected ShardManager createShardManager(int numShards,
+    protected ShardManager createShardManager(int numShards,
                                               ShardBlacklistingStore blacklistingStore) {
         return new LegacyShardManager(numShards, blacklistingStore);
     }
