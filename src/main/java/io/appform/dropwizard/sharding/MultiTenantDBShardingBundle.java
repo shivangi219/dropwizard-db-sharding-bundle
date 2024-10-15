@@ -17,7 +17,6 @@
 
 package io.appform.dropwizard.sharding;
 
-import io.appform.dropwizard.sharding.config.MultiTenantShardedHibernateFactory;
 import io.appform.dropwizard.sharding.sharding.LegacyShardManager;
 import io.appform.dropwizard.sharding.sharding.ShardBlacklistingStore;
 import io.appform.dropwizard.sharding.sharding.ShardManager;
@@ -25,7 +24,6 @@ import io.dropwizard.Configuration;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.List;
-import java.util.Map;
 
 /**
  * A dropwizard bundle that provides sharding over normal RDBMS with multi tenancy.
@@ -52,5 +50,4 @@ public abstract class MultiTenantDBShardingBundle<T extends Configuration> exten
         return new LegacyShardManager(numShards, blacklistingStore);
     }
 
-    protected abstract MultiTenantShardedHibernateFactory getConfig(T config);
 }
