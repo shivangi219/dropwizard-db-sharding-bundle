@@ -17,14 +17,15 @@
 
 package io.appform.dropwizard.sharding;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-
 import io.appform.dropwizard.sharding.config.MultiTenantShardedHibernateFactory;
 import io.appform.dropwizard.sharding.dao.MultiTenantLookupDao;
 import io.appform.dropwizard.sharding.dao.testdata.entities.TestEntity;
 import io.appform.dropwizard.sharding.dao.testdata.multi.MultiPackageTestEntity;
-import java.util.Optional;
 import org.junit.jupiter.api.Test;
+
+import java.util.Optional;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class MultiTenantLegacyDbShardingBundleWithMultipleClassPath extends
     MultiTenantDBShardingBundleTestBase {

@@ -22,11 +22,12 @@ import io.appform.dropwizard.sharding.caching.RelationalCache;
 import io.appform.dropwizard.sharding.config.ShardingBundleOptions;
 import io.appform.dropwizard.sharding.observers.TransactionObserver;
 import io.appform.dropwizard.sharding.utils.ShardCalculator;
+import org.hibernate.SessionFactory;
+import org.hibernate.criterion.DetachedCriteria;
+
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import org.hibernate.SessionFactory;
-import org.hibernate.criterion.DetachedCriteria;
 
 /**
  * A read/write through cache enabled {@link MultiTenantRelationalDao}
