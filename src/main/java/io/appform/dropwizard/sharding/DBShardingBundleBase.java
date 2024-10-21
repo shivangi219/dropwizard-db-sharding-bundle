@@ -32,6 +32,7 @@ import io.appform.dropwizard.sharding.filters.TransactionFilter;
 import io.appform.dropwizard.sharding.listeners.TransactionListener;
 import io.appform.dropwizard.sharding.observers.TransactionObserver;
 import io.appform.dropwizard.sharding.sharding.BucketIdExtractor;
+import io.appform.dropwizard.sharding.sharding.InMemoryLocalShardBlacklistingStore;
 import io.appform.dropwizard.sharding.sharding.ShardBlacklistingStore;
 import io.appform.dropwizard.sharding.sharding.ShardManager;
 import io.dropwizard.Configuration;
@@ -41,6 +42,7 @@ import io.dropwizard.setup.Bootstrap;
 import io.dropwizard.setup.Environment;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
+import org.hibernate.SessionFactory;
 
 import java.util.Arrays;
 import java.util.List;
@@ -86,6 +88,11 @@ public abstract class DBShardingBundleBase<T extends Configuration> implements C
                         Map.of(dbNamespace, DBShardingBundleBase.this.getConfig(config))
                 );
             }
+
+            @Override
+            protected ShardBlacklistingStore getBlacklistingStore() {
+                return DBShardingBundleBase.this.getBlacklistingStore();
+            }
         };
     }
 
@@ -103,9 +110,21 @@ public abstract class DBShardingBundleBase<T extends Configuration> implements C
                         Map.of(dbNamespace, DBShardingBundleBase.this.getConfig(config))
                 );
             }
+
+            @Override
+            protected ShardBlacklistingStore getBlacklistingStore() {
+                return DBShardingBundleBase.this.getBlacklistingStore();
+            }
         };
     }
 
+    protected ShardBlacklistingStore getBlacklistingStore() {
+        return new InMemoryLocalShardBlacklistingStore();
+    }
+
+    public List<SessionFactory> getSessionFactories(){
+        return delegate.getSessionFactories().get(dbNamespace);
+    }
 
     protected abstract ShardManager createShardManager(int numShards, ShardBlacklistingStore blacklistingStore);
 
