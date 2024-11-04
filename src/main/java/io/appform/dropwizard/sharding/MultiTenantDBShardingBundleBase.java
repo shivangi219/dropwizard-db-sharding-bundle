@@ -198,15 +198,7 @@ public abstract class MultiTenantDBShardingBundleBase<T extends Configuration> e
   protected abstract MultiTenantShardedHibernateFactory getConfig(T config);
 
   protected Supplier<MetricConfig> getMetricConfig(String tenantId, T config) {
-    return () -> getConfig(config).config(tenantId).getMetricConfig();
-  }
-
-  private ShardingBundleOptions getShardingOptions(String tenantId, T configuration) {
-    val shardedHibernateFactory = getConfig(configuration).config(tenantId);
-    Preconditions.checkArgument(shardedHibernateFactory != null,
-        "Unknown tenant: " + tenantId);
-    val options = shardedHibernateFactory.getShardingOptions();
-    return Objects.nonNull(options) ? options : new ShardingBundleOptions();
+    return () -> getConfig(config).getTenants().get(tenantId).getMetricConfig();
   }
 
   public <EntityType, T extends Configuration>
