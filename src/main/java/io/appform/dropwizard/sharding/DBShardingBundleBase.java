@@ -123,16 +123,9 @@ public abstract class DBShardingBundleBase<T extends Configuration> extends Bund
                 shardInfoProvider,
                 blacklistingStore,
                 shardManager);
-        //Encryption Support through jasypt-hibernate5
-        if(shardingOptions.isEncryptionSupportEnabled()) {
-            Preconditions.checkArgument(shardingOptions.getEncryptionIv().length() == 16, "Encryption IV Should be 16 bytes long");
-            registerStringEncryptor(null, shardingOptions);
-            registerBigIntegerEncryptor(null, shardingOptions);
-            registerBigDecimalEncryptor(null, shardingOptions);
-            registerByteEncryptor(null, shardingOptions);
-        }
         IntStream.range(0, numShards).forEach(
-                shard -> shardBundles.add(new HibernateBundle<T>(initialisedEntities, new SessionFactoryFactory()) {
+                shard ->
+                    shardBundles.add(new HibernateBundle<T>(initialisedEntities, new SessionFactoryFactory()) {
                     @Override
                     protected String name() {
                         return shardInfoProvider.shardName(shard);
@@ -140,7 +133,21 @@ public abstract class DBShardingBundleBase<T extends Configuration> extends Bund
 
                     @Override
                     public PooledDataSourceFactory getDataSourceFactory(T t) {
-                        return getConfig(t).getShards().get(shard);
+                        var bundleConfig = getConfig(t);
+                        //Encryption Support through jasypt-hibernate5
+                        //All types will have to be added before a session factory is created.
+                        //In multitenant bundle, it is created during run, which gives
+                        //an opportunity to evaluate sharding options and enable encryption support if required.
+                        //In the base bundle it is created before run and hence this ugly workaround is required.
+                        //If we move the init to run, this can be done more elegantly.
+                        if(shard == 0 && Objects.nonNull(bundleConfig.getShardingOptions()) && bundleConfig.getShardingOptions().isEncryptionSupportEnabled()) {
+                            Preconditions.checkArgument(shardingOptions.getEncryptionIv().length() == 16, "Encryption IV Should be 16 bytes long");
+                            registerStringEncryptor(null, shardingOptions);
+                            registerBigIntegerEncryptor(null, shardingOptions);
+                            registerBigDecimalEncryptor(null, shardingOptions);
+                            registerByteEncryptor(null, shardingOptions);
+                        }
+                        return bundleConfig.getShards().get(shard);
                     }
                 }));
     }
