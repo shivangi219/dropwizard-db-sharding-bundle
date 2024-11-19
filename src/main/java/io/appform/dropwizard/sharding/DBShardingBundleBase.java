@@ -141,6 +141,7 @@ public abstract class DBShardingBundleBase<T extends Configuration> extends Bund
                         //In the base bundle it is created before run and hence this ugly workaround is required.
                         //If we move the init to run, this can be done more elegantly.
                         if(shard == 0 && Objects.nonNull(bundleConfig.getShardingOptions()) && bundleConfig.getShardingOptions().isEncryptionSupportEnabled()) {
+                            shardingOptions = bundleConfig.getShardingOptions();
                             Preconditions.checkArgument(shardingOptions.getEncryptionIv().length() == 16, "Encryption IV Should be 16 bytes long");
                             registerStringEncryptor(null, shardingOptions);
                             registerBigIntegerEncryptor(null, shardingOptions);
