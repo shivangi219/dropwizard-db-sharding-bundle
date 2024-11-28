@@ -122,7 +122,7 @@ public abstract class DBShardingBundleBase<T extends Configuration> implements C
         return new InMemoryLocalShardBlacklistingStore();
     }
 
-    public List<SessionFactory> getSessionFactories(){
+    public List<SessionFactory> getSessionFactories() {
         return delegate.getSessionFactories().get(dbNamespace);
     }
 
