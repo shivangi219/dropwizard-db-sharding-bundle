@@ -28,7 +28,7 @@ public class TimerObserver extends TransactionObserver {
             return proceed(context, supplier);
         } finally {
             log.info("Method {}::{} took: {}ms",
-                    context.getDaoType().getMetricName(),
+                    context.getDaoType().name(),
                     context.getCommandName(),
                     w.elapsed());
         }
