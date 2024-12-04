@@ -82,6 +82,20 @@ public class CacheableRelationalDao<T> extends RelationalDao<T> {
         );
     }
 
+    /**
+     * Retrieves an entity from the cache or the database based on the parent key and entity key.
+     *
+     * This method attempts to retrieve an entity from the cache first using the provided parent key and entity key.
+     * If the entity is found in the cache, it is returned as an Optional. If not found in the cache, the method falls
+     * back to the parent class's (superclass) `get` method to retrieve the entity from the database. If the entity is
+     * found in the database, it is added to the cache for future access. If the entity is not found in either the cache
+     * or the database, an empty Optional is returned.
+     *
+     * @param parentKey The parent key associated with the entity.
+     * @param key The key of the entity to retrieve.
+     * @return An Optional containing the retrieved entity if found, or an empty Optional if the entity is not found.
+     * @throws IllegalArgumentException If the parent key or entity key is invalid.
+     */
     @Override
     public Optional<T> get(String parentKey, Object key) {
         return delegate.get(dbNamespace, parentKey, key);
