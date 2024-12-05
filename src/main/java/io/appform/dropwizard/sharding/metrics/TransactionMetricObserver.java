@@ -52,9 +52,9 @@ public class TransactionMetricObserver extends TransactionObserver {
     private List<MetricData> getMetrics(final TransactionExecutionContext context) {
         val entityOpMetricData = entityOpMetricCache.computeIfAbsent(EntityOpMetricKey.builder()
                         .lockedContextMode(context.getOpContext() instanceof LockAndExecute ?
-                                ((LockAndExecute<?>)context.getOpContext()).getMode().name() : null)
+                                ((LockAndExecute<?>) context.getOpContext()).getMode().name() : null)
                         .commandName(context.getCommandName())
-                        .daoClass(context.getDaoClass())
+                        .daoType(context.getDaoType())
                         .entityClass(context.getEntityClass())
                         .build(),
                 key -> metricManager.getEntityOpMetricData(context));

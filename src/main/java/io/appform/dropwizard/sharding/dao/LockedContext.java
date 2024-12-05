@@ -3,6 +3,7 @@ package io.appform.dropwizard.sharding.dao;
 import io.appform.dropwizard.sharding.ShardInfoProvider;
 import io.appform.dropwizard.sharding.dao.operations.OpContext;
 import io.appform.dropwizard.sharding.dao.operations.lockedcontext.LockAndExecute;
+import io.appform.dropwizard.sharding.execution.DaoType;
 import io.appform.dropwizard.sharding.execution.TransactionExecutionContext;
 import io.appform.dropwizard.sharding.observers.TransactionObserver;
 import io.appform.dropwizard.sharding.query.QuerySpec;
@@ -35,6 +36,7 @@ public class LockedContext<T> {
         void mutator(T parent);
     }
 
+    private final String tenantId;
     private final int shardId;
     private final SessionFactory sessionFactory;
     private final TransactionExecutionContext executionContext;
@@ -42,65 +44,71 @@ public class LockedContext<T> {
 
     /**
      * Constructs a LockedContext for reading a specific entity within a locked transaction.
-     *
+     * <p>
      * This constructor initializes a LockedContext, which provides a locked environment for reading a specific entity
      * within a transaction. The LockedContext allows you to retrieve the entity while ensuring that the read operation
      * is performed atomically and under the protection of the locking mechanism.
      *
-     * @param shardId The identifier of the shard where the entity is located.
-     * @param sessionFactory The Hibernate SessionFactory associated with the entity.
-     * @param getter A supplier function responsible for retrieving the entity within the locked context.
-     * @param entityClass The Class representing the type of the entity.
+     * @param shardId           The identifier of the shard where the entity is located.
+     * @param sessionFactory    The Hibernate SessionFactory associated with the entity.
+     * @param getter            A supplier function responsible for retrieving the entity within the locked context.
+     * @param entityClass       The Class representing the type of the entity.
      * @param shardInfoProvider A provider for shard-specific information.
-     * @param observer An observer for monitoring transaction events.
+     * @param observer          An observer for monitoring transaction events.
      */
     public LockedContext(
+            String tenantId,
             int shardId,
             SessionFactory sessionFactory,
             Supplier<T> getter,
+            DaoType daoType,
             Class<T> entityClass,
             ShardInfoProvider shardInfoProvider,
             TransactionObserver observer) {
+        this.tenantId = tenantId;
         this.shardId = shardId;
         this.sessionFactory = sessionFactory;
         this.observer = observer;
         val opContext = LockAndExecute.<T>buildForRead()
-            .getter(getter)
-            .build();
-        this.executionContext = buildExecutionContext(shardInfoProvider, entityClass, opContext);
+                .getter(getter)
+                .build();
+        this.executionContext = buildExecutionContext(shardInfoProvider, daoType, entityClass, opContext);
     }
 
     /**
      * Constructs a LockedContext for performing operations on a specific entity within a locked transaction.
-     *
+     * <p>
      * This constructor initializes a LockedContext, which provides a locked environment for performing operations on a
      * specific entity within a transaction. The LockedContext allows you to work with the entity while ensuring that
      * modifications are made atomically and under the protection of the locking mechanism.
      *
-     * @param shardId The identifier of the shard where the entity is located.
-     * @param sessionFactory The Hibernate SessionFactory associated with the entity.
-     * @param saver A function responsible for saving or updating the entity within the context.
-     * @param entity The entity on which operations will be performed within the locked context.
-     * @param entityClass The Class representing the type of the entity.
+     * @param shardId           The identifier of the shard where the entity is located.
+     * @param sessionFactory    The Hibernate SessionFactory associated with the entity.
+     * @param saver             A function responsible for saving or updating the entity within the context.
+     * @param entity            The entity on which operations will be performed within the locked context.
+     * @param entityClass       The Class representing the type of the entity.
      * @param shardInfoProvider A provider for shard-specific information.
-     * @param observer An observer for monitoring transaction events.
+     * @param observer          An observer for monitoring transaction events.
      */
     public LockedContext(
+            String tenantId,
             int shardId,
             SessionFactory sessionFactory,
             Function<T, T> saver,
+            DaoType daoType,
             T entity,
             Class<T> entityClass,
             ShardInfoProvider shardInfoProvider,
             TransactionObserver observer) {
+        this.tenantId = tenantId;
         this.shardId = shardId;
         this.sessionFactory = sessionFactory;
         this.observer = observer;
         val opContext = LockAndExecute.<T>buildForInsert()
-            .saver(saver)
-            .entity(entity)
-            .build();
-        this.executionContext = buildExecutionContext(shardInfoProvider, entityClass, opContext);
+                .saver(saver)
+                .entity(entity)
+                .build();
+        this.executionContext = buildExecutionContext(shardInfoProvider, daoType, entityClass, opContext);
     }
 
     /**
@@ -131,7 +139,7 @@ public class LockedContext<T> {
 
     /**
      * Applies a handler function to the current entity within a locked context.
-     *
+     * <p>
      * This method allows you to apply a handler function to the current entity within the context of a locked transaction.
      * The handler function is provided as a {@code Consumer}
      * The handler is added to a list of operations to be executed within the locked context.
@@ -173,7 +181,6 @@ public class LockedContext<T> {
      * Generates entity of type {@code U} using entityGenerator and then persists them
      *
      * @param <U>             The type of the associated entity to be saved.
-     * @param tenantId        Tenant Id
      * @param relationalDao   The relational DAO responsible for saving the associated entity.
      * @param entityGenerator A function that generates the associated entity based on the parent entity.
      * @return A reference to this LockedContext, enabling method chaining.
@@ -184,11 +191,11 @@ public class LockedContext<T> {
      * @throws IllegalArgumentException if the provided relational DAO or entity generator function is null.
      *                                  This exception indicates invalid or missing inputs.
      */
-    public <U> LockedContext<T> save(String tenantId, MultiTenantRelationalDao<U> relationalDao, Function<T, U> entityGenerator) {
+    public <U> LockedContext<T> save(MultiTenantRelationalDao<U> relationalDao, Function<T, U> entityGenerator) {
         return apply(parent -> {
             try {
                 U entity = entityGenerator.apply(parent);
-                relationalDao.save(tenantId, this, entity);
+                relationalDao.save(this, entity);
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }
@@ -226,7 +233,6 @@ public class LockedContext<T> {
      * Generates list of entity of type {@code U} using entityGenerator and then persists them in bulk
      *
      * @param <U>             The type of the associated entity to be saved.
-     * @param tenantId        Tenant Id
      * @param relationalDao   The relational DAO responsible for saving the associated entity.
      * @param entityGenerator A function that generates the associated entity based on the parent entity.
      * @return A reference to this LockedContext, enabling method chaining.
@@ -237,12 +243,12 @@ public class LockedContext<T> {
      * @throws IllegalArgumentException if the provided relational DAO or entity generator function is null.
      *                                  This exception indicates invalid or missing inputs.
      */
-    public <U> LockedContext<T> saveAll(String tenantId, MultiTenantRelationalDao<U> relationalDao, Function<T, List<U>> entityGenerator) {
+    public <U> LockedContext<T> saveAll(MultiTenantRelationalDao<U> relationalDao, Function<T, List<U>> entityGenerator) {
         return apply(parent -> {
             try {
                 List<U> entities = entityGenerator.apply(parent);
                 for (U entity : entities) {
-                    relationalDao.save(tenantId, this, entity);
+                    relationalDao.save(this, entity);
                 }
             } catch (Exception e) {
                 throw new RuntimeException(e);
@@ -252,14 +258,14 @@ public class LockedContext<T> {
 
     /**
      * Initiates an update operation using a query against a related RelationalDao within a locked context.
-     *
+     * <p>
      * This method allows you to initiate an update operation using a query against a related {@code RelationalDao} within the
      * context of a locked transaction. It takes a {@code RelationalDao} instance and an {@code UpdateOperationMeta} object to specify
      * the details of the update operation. The update operation is executed within the locked context provided by this
      * method.
      *
-     * @param <U> The type parameter representing the entity type of the related {@code RelationalDao}.
-     * @param relationalDao The related {@code RelationalDao} used to perform the update operation.
+     * @param <U>                 The type parameter representing the entity type of the related {@code RelationalDao}.
+     * @param relationalDao       The related {@code RelationalDao} used to perform the update operation.
      * @param updateOperationMeta The {@code UpdateOperationMeta} containing details of the update operation to be executed.
      * @return A locked context for the current entity type, allowing for further chained operations within a locked transaction.
      * @throws RuntimeException If an error occurs during the update operation or query execution.
@@ -316,22 +322,22 @@ public class LockedContext<T> {
      * @throws IllegalArgumentException if the provided relational DAO or identifier is null. This exception
      *                                  indicates invalid or missing inputs.
      *
-     * <p>
-     * This method allows for the updating of an associated entity using a provided relational DAO. It requires specifying
-     * the identifier of the entity to be updated and, optionally, a handler function that can apply custom modifications
-     * to the entity before the update operation is performed.
-     * </p>
+     *                                  <p>
+     *                                  This method allows for the updating of an associated entity using a provided relational DAO. It requires specifying
+     *                                  the identifier of the entity to be updated and, optionally, a handler function that can apply custom modifications
+     *                                  to the entity before the update operation is performed.
+     *                                  </p>
      *
-     * <p>
-     * The {@code handler} function, if provided, takes the associated entity (of type U) as input and can be used to
-     * apply custom changes to the entity's state before it is updated using the provided {@code relationalDao}.
-     * </p>
+     *                                  <p>
+     *                                  The {@code handler} function, if provided, takes the associated entity (of type U) as input and can be used to
+     *                                  apply custom changes to the entity's state before it is updated using the provided {@code relationalDao}.
+     *                                  </p>
      *
-     * <p>
-     * If the update operation is successful, this method returns a reference to the current LockedContext, allowing for
-     * method chaining. However, if an exception occurs during the update operation or if the handler function throws an
-     * exception, a {@code RuntimeException} is thrown, indicating that the update operation was unsuccessful.
-     * </p>
+     *                                  <p>
+     *                                  If the update operation is successful, this method returns a reference to the current LockedContext, allowing for
+     *                                  method chaining. However, if an exception occurs during the update operation or if the handler function throws an
+     *                                  exception, a {@code RuntimeException} is thrown, indicating that the update operation was unsuccessful.
+     *                                  </p>
      */
     public <U> LockedContext<T> update(RelationalDao<U> relationalDao, Object id, Function<U, U> handler) {
         return apply(parent -> {
@@ -346,10 +352,10 @@ public class LockedContext<T> {
     /**
      * Creates or updates an associated entity using a relational DAO, criteria, an updater function, and an entity generator.
      *
-     * @param <U>           The type of the parent entity associated with LockedContext
-     * @param relationalDao The relational DAO responsible for creating or updating the associated entity.
-     * @param criteria      The criteria used to determine whether to create or update the entity.
-     * @param updater       A function that can modify the associated entity before updating or creating.
+     * @param <U>             The type of the parent entity associated with LockedContext
+     * @param relationalDao   The relational DAO responsible for creating or updating the associated entity.
+     * @param criteria        The criteria used to determine whether to create or update the entity.
+     * @param updater         A function that can modify the associated entity before updating or creating.
      * @param entityGenerator A supplier function that generates a new entity if needed.
      * @return A reference to this LockedContext, enabling method chaining.
      *
@@ -507,7 +513,7 @@ public class LockedContext<T> {
 
     /**
      * Filters the current context based on a predicate, throwing an IllegalArgumentException on failure.
-     *
+     * <p>
      * This overloaded version of the filter method allows you to apply a predicate to the current context's parent entity.
      * If the predicate evaluates to `false`, it throws an IllegalArgumentException with a default message. If the predicate
      * evaluates to `true`, the context remains unchanged.
@@ -523,12 +529,12 @@ public class LockedContext<T> {
 
     /**
      * Filters the current context based on a predicate, throwing an exception on failure.
-     *
+     * <p>
      * This method allows you to apply a predicate to the current context's parent entity. If the predicate
      * evaluates to `false`, it throws the specified runtime exception. If the predicate evaluates to `true`,
      * the context remains unchanged.
      *
-     * @param predicate The predicate used to filter the context's parent entity.
+     * @param predicate        The predicate used to filter the context's parent entity.
      * @param failureException The runtime exception to throw if the predicate evaluates to `false`.
      * @return A LockedContext representing the filtered or unchanged context.
      * @throws RuntimeException If the predicate evaluates to `false`, the specified runtime exception is thrown.
@@ -545,7 +551,7 @@ public class LockedContext<T> {
 
     /**
      * Executes a series of operations within a transactional context and returns a result.
-     *
+     * <p>
      * This method executes a series of operations within a transactional context. It uses an
      * observer to manage the execution and provides transactional handling for the operations. The operations
      * are applied to generate an entity result, and the result is returned.
@@ -570,15 +576,17 @@ public class LockedContext<T> {
     }
 
     private TransactionExecutionContext buildExecutionContext(
-        final ShardInfoProvider shardInfoProvider,
-        final Class<T> entityClass, final OpContext opContext) {
+            final ShardInfoProvider shardInfoProvider,
+            final DaoType daoType,
+            final Class<T> entityClass,
+            final OpContext opContext) {
         return TransactionExecutionContext.builder()
-            .commandName("execute")
-            .shardName(shardInfoProvider.shardName(shardId))
-            .entityClass(entityClass)
-            .daoClass(getClass())
-            .opContext(opContext)
-            .build();
+                .commandName("execute")
+                .shardName(shardInfoProvider.shardName(shardId))
+                .entityClass(entityClass)
+                .daoType(daoType)
+                .opContext(opContext)
+                .build();
     }
 
     public enum Mode {READ, INSERT}
