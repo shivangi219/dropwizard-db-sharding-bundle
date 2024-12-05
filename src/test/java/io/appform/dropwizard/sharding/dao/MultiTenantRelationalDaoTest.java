@@ -279,7 +279,7 @@ public class MultiTenantRelationalDaoTest {
         .build();
     MDC.clear();
     relationalDao.save("TENANT1", relationalKey, entityOne);
-    InterceptorTestUtil.validateThreadLocal(MultiTenantRelationalDao.class, RelationalEntity.class);
+    InterceptorTestUtil.validateThreadLocal(RelationalDao.class.getCanonicalName(), RelationalEntity.class);
   }
 
   @Test
