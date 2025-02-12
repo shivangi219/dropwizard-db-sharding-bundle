@@ -30,6 +30,7 @@ import io.appform.dropwizard.sharding.dao.interceptors.DaoClassLocalObserver;
 import io.appform.dropwizard.sharding.observers.internal.TerminalTransactionObserver;
 import io.appform.dropwizard.sharding.query.QuerySpec;
 import io.appform.dropwizard.sharding.sharding.BalancedShardManager;
+import io.appform.dropwizard.sharding.sharding.ConsistentHashBucketIdExtractor;
 import io.appform.dropwizard.sharding.sharding.ShardManager;
 import io.appform.dropwizard.sharding.utils.ShardCalculator;
 import lombok.SneakyThrows;
@@ -95,7 +96,7 @@ public class LockTest {
             sessionFactories.add(sessionFactory);
         }
         final ShardManager shardManager = new BalancedShardManager(sessionFactories.size());
-        final ShardCalculator<String> shardCalculator = new ShardCalculator<>(shardManager, Integer::parseInt);
+        final ShardCalculator<String> shardCalculator = new ShardCalculator<>(shardManager, new ConsistentHashBucketIdExtractor<>(shardManager));
         final ShardingBundleOptions shardingOptions = ShardingBundleOptions.builder().skipReadOnlyTransaction(true).build();
         final ShardInfoProvider shardInfoProvider = new ShardInfoProvider("default");
         lookupDao = new LookupDao<>(sessionFactories, SomeLookupObject.class, shardCalculator, shardingOptions,

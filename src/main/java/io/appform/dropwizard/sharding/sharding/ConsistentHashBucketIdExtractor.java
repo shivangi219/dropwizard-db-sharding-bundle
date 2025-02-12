@@ -15,12 +15,10 @@
  *
  */
 
-package io.appform.dropwizard.sharding.sharding.impl;
+package io.appform.dropwizard.sharding.sharding;
 
 import com.google.common.hash.Hashing;
 import io.appform.dropwizard.sharding.DBShardingBundleBase;
-import io.appform.dropwizard.sharding.sharding.BucketIdExtractor;
-import io.appform.dropwizard.sharding.sharding.ShardManager;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
@@ -28,7 +26,7 @@ import java.util.Map;
 /**
  * Generates bucket id on the basis of murmur128 of the key.
  */
-public class ConsistentHashBucketIdExtractor<T> implements BucketIdExtractor<T> {
+public class ConsistentHashBucketIdExtractor<T> {
 
     private final Map<String, ShardManager> shardManagers;
 
@@ -40,15 +38,6 @@ public class ConsistentHashBucketIdExtractor<T> implements BucketIdExtractor<T> 
         this.shardManagers = shardManagers;
     }
 
-
-    @Override
-    public int bucketId(T id) {
-        int hashKey = Hashing.murmur3_128().hashString(id.toString(), StandardCharsets.UTF_8).asInt();
-        hashKey *= hashKey < 0 ? -1 : 1;
-        return hashKey % shardManagers.get(DBShardingBundleBase.DEFAULT_NAMESPACE).numBuckets();
-    }
-
-    @Override
     public int bucketId(String tenantId, T id) {
         int hashKey = Hashing.murmur3_128().hashString(id.toString(), StandardCharsets.UTF_8).asInt();
         hashKey *= hashKey < 0 ? -1 : 1;
