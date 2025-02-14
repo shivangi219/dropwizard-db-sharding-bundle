@@ -125,6 +125,10 @@ public abstract class DBShardingBundleBase<T extends Configuration> implements C
         return delegate.getSessionFactories().get(dbNamespace);
     }
 
+    public List<Class<?>> getInitialisedEntities() {
+       return delegate.getInitialisedEntities();
+    }
+
     protected abstract ShardManager createShardManager(int numShards, ShardBlacklistingStore blacklistingStore);
 
     @Override
