@@ -35,7 +35,7 @@ import io.appform.dropwizard.sharding.dao.WrapperDao;
 import io.appform.dropwizard.sharding.healthcheck.HealthCheckManager;
 import io.appform.dropwizard.sharding.sharding.ShardBlacklistingStore;
 import io.appform.dropwizard.sharding.sharding.ShardManager;
-import io.appform.dropwizard.sharding.sharding.ConsistentHashBucketIdExtractor;
+import io.appform.dropwizard.sharding.sharding.impl.ConsistentHashBucketIdExtractor;
 import io.appform.dropwizard.sharding.utils.ShardCalculator;
 import io.dropwizard.Configuration;
 import io.dropwizard.ConfiguredBundle;

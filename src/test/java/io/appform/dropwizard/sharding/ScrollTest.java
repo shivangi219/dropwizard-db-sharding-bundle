@@ -9,7 +9,7 @@ import io.appform.dropwizard.sharding.observers.internal.TerminalTransactionObse
 import io.appform.dropwizard.sharding.scroll.ScrollPointer;
 import io.appform.dropwizard.sharding.scroll.ScrollResult;
 import io.appform.dropwizard.sharding.sharding.BalancedShardManager;
-import io.appform.dropwizard.sharding.sharding.ConsistentHashBucketIdExtractor;
+import io.appform.dropwizard.sharding.sharding.impl.ConsistentHashBucketIdExtractor;
 import io.appform.dropwizard.sharding.utils.ShardCalculator;
 import lombok.extern.slf4j.Slf4j;
 import lombok.val;

@@ -29,7 +29,7 @@ import io.appform.dropwizard.sharding.dao.testdata.entities.Transaction;
 import io.appform.dropwizard.sharding.observers.internal.TerminalTransactionObserver;
 import io.appform.dropwizard.sharding.sharding.BalancedShardManager;
 import io.appform.dropwizard.sharding.sharding.ShardManager;
-import io.appform.dropwizard.sharding.sharding.ConsistentHashBucketIdExtractor;
+import io.appform.dropwizard.sharding.sharding.impl.ConsistentHashBucketIdExtractor;
 import io.appform.dropwizard.sharding.utils.ShardCalculator;
 import org.apache.commons.lang3.StringUtils;
 import org.hibernate.SessionFactory;

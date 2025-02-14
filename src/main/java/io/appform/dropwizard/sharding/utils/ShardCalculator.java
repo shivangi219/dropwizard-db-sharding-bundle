@@ -18,8 +18,8 @@
 package io.appform.dropwizard.sharding.utils;
 
 import io.appform.dropwizard.sharding.DBShardingBundleBase;
+import io.appform.dropwizard.sharding.sharding.BucketIdExtractor;
 import io.appform.dropwizard.sharding.sharding.ShardManager;
-import io.appform.dropwizard.sharding.sharding.ConsistentHashBucketIdExtractor;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.Map;
@@ -31,13 +31,13 @@ import java.util.Map;
 public class ShardCalculator<T> {
 
     private final Map<String, ShardManager> shardManagers;
-    private final ConsistentHashBucketIdExtractor<T> extractor;
+    private final BucketIdExtractor<T> extractor;
 
-    public ShardCalculator(ShardManager shardManager, ConsistentHashBucketIdExtractor<T> extractor) {
+    public ShardCalculator(ShardManager shardManager, BucketIdExtractor<T> extractor) {
         this(Map.of(DBShardingBundleBase.DEFAULT_NAMESPACE, shardManager), extractor);
     }
 
-    public ShardCalculator(Map<String, ShardManager> shardManagers, ConsistentHashBucketIdExtractor<T> extractor) {
+    public ShardCalculator(Map<String, ShardManager> shardManagers, BucketIdExtractor<T> extractor) {
         this.shardManagers = shardManagers;
         this.extractor = extractor;
     }
