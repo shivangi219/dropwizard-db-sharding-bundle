@@ -24,16 +24,10 @@ import io.appform.dropwizard.sharding.ShardInfoProvider;
 import io.appform.dropwizard.sharding.config.ShardingBundleOptions;
 import io.appform.dropwizard.sharding.dao.interceptors.TimerObserver;
 import io.appform.dropwizard.sharding.dao.listeners.LoggingListener;
-import io.appform.dropwizard.sharding.dao.testdata.entities.Audit;
-import io.appform.dropwizard.sharding.dao.testdata.entities.Phone;
-import io.appform.dropwizard.sharding.dao.testdata.entities.TestEntity;
-import io.appform.dropwizard.sharding.dao.testdata.entities.TestEntityWithAIId;
-import io.appform.dropwizard.sharding.dao.testdata.entities.Transaction;
+import io.appform.dropwizard.sharding.dao.testdata.entities.*;
 import io.appform.dropwizard.sharding.observers.internal.ListenerTriggeringObserver;
 import io.appform.dropwizard.sharding.sharding.BalancedShardManager;
 import io.appform.dropwizard.sharding.sharding.ShardManager;
-import io.appform.dropwizard.sharding.sharding.impl.ConsistentHashBucketIdExtractor;
-import io.appform.dropwizard.sharding.utils.ShardCalculator;
 import lombok.val;
 import org.hibernate.SessionFactory;
 import org.hibernate.boot.registry.StandardServiceRegistry;
@@ -45,17 +39,9 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.*;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class MultiTenantLookupDaoTest {
 
@@ -100,9 +86,6 @@ public class MultiTenantLookupDaoTest {
             buildSessionFactory("tenant2_3"), buildSessionFactory("tenant2_4")));
     sessionFactories.forEach((tenant, sessionFactory) ->
         shardManager.put(tenant, new BalancedShardManager(sessionFactory.size())));
-    final ShardCalculator<String> shardCalculator = new ShardCalculator<>(shardManager,
-        new ConsistentHashBucketIdExtractor<>(
-            shardManager));
     final Map<String, ShardingBundleOptions> shardingOptions = Map.of("TENANT1",
         new ShardingBundleOptions(), "TENANT2", new ShardingBundleOptions());
 
@@ -111,25 +94,18 @@ public class MultiTenantLookupDaoTest {
         "TENANT2", new ShardInfoProvider("TENANT2"));
     val observer = new TimerObserver(
         new ListenerTriggeringObserver().addListener(new LoggingListener()));
-    lookupDao = new MultiTenantLookupDao<>(sessionFactories, TestEntity.class, shardCalculator,
-        shardingOptions,
-        shardInfoProvider, observer);
-
-    lookupDaoForAI = new MultiTenantLookupDao<>(sessionFactories, TestEntityWithAIId.class,
-        shardCalculator,
-        shardingOptions,
-        shardInfoProvider, observer);
-
-    phoneDao = new MultiTenantLookupDao<>(sessionFactories, Phone.class, shardCalculator,
-        shardingOptions,
-        shardInfoProvider, observer);
-    transactionDao = new MultiTenantRelationalDao<>(sessionFactories, Transaction.class,
-        shardCalculator,
-        shardingOptions,
-        shardInfoProvider, observer);
-    auditDao = new MultiTenantRelationalDao<>(sessionFactories, Audit.class, shardCalculator,
-        shardingOptions,
-        shardInfoProvider, observer);
+    val daoFactory = MultitenantDaoFactoryProvider.create(
+            sessionFactories,
+            shardManager,
+            shardingOptions,
+            shardInfoProvider,
+            observer
+    );
+    lookupDao = daoFactory.createMultiTenantLookupDao(TestEntity.class);
+    lookupDaoForAI = daoFactory.createMultiTenantLookupDao(TestEntityWithAIId.class);
+    phoneDao = daoFactory.createMultiTenantLookupDao(Phone.class);
+    transactionDao = daoFactory.createMultiTenantRelationalDao(Transaction.class);
+    auditDao = daoFactory.createMultiTenantRelationalDao(Audit.class);
   }
 
   @AfterEach

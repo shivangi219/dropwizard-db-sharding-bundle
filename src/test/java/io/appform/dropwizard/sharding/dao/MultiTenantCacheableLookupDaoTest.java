@@ -29,8 +29,7 @@ import io.appform.dropwizard.sharding.dao.testdata.entities.Transaction;
 import io.appform.dropwizard.sharding.observers.internal.TerminalTransactionObserver;
 import io.appform.dropwizard.sharding.sharding.BalancedShardManager;
 import io.appform.dropwizard.sharding.sharding.ShardManager;
-import io.appform.dropwizard.sharding.sharding.impl.ConsistentHashBucketIdExtractor;
-import io.appform.dropwizard.sharding.utils.ShardCalculator;
+import lombok.val;
 import org.apache.commons.lang3.StringUtils;
 import org.hibernate.SessionFactory;
 import org.hibernate.boot.registry.StandardServiceRegistry;
@@ -83,345 +82,329 @@ public class MultiTenantCacheableLookupDaoTest {
   }
 
 
-  @BeforeEach
-  public void before() {
-    sessionFactories = Map.of("TENANT1",
-        List.of(buildSessionFactory("tenant1_1"), buildSessionFactory("tenant1_2")),
-        "TENANT2",
-        List.of(buildSessionFactory("tenant2_1"), buildSessionFactory("tenant2_2"),
-            buildSessionFactory("tenant2_3"), buildSessionFactory("tenant2_4")));
-    sessionFactories.forEach((tenant, sessionFactory) ->
-        shardManager.put(tenant, new BalancedShardManager(sessionFactory.size())));
-    final ShardCalculator<String> shardCalculator = new ShardCalculator<>(shardManager,
-        new ConsistentHashBucketIdExtractor<>(
-            shardManager));
-    final Map<String, ShardingBundleOptions> shardingOptions = Map.of("TENANT1",
-        new ShardingBundleOptions(), "TENANT2", new ShardingBundleOptions());
+    @BeforeEach
+    public void before() {
+        sessionFactories = Map.of("TENANT1",
+                List.of(buildSessionFactory("tenant1_1"), buildSessionFactory("tenant1_2")),
+                "TENANT2",
+                List.of(buildSessionFactory("tenant2_1"), buildSessionFactory("tenant2_2"),
+                        buildSessionFactory("tenant2_3"), buildSessionFactory("tenant2_4")));
+        sessionFactories.forEach((tenant, sessionFactory) ->
+                shardManager.put(tenant, new BalancedShardManager(sessionFactory.size())));
+        final Map<String, ShardingBundleOptions> shardingOptions = Map.of("TENANT1",
+                new ShardingBundleOptions(), "TENANT2", new ShardingBundleOptions());
 
-    final Map<String, ShardInfoProvider> shardInfoProvider = Map.of("TENANT1",
-        new ShardInfoProvider("TENANT1"),
-        "TENANT2", new ShardInfoProvider("TENANT2"));
-    lookupDao = new MultiTenantCacheableLookupDao<>(
-        sessionFactories,
-        TestEntity.class,
-        new ShardCalculator<>(shardManager, new ConsistentHashBucketIdExtractor<>(shardManager)),
-        Map.of("TENANT1", new LookupCache<TestEntity>() {
+        final Map<String, ShardInfoProvider> shardInfoProvider = Map.of("TENANT1",
+                new ShardInfoProvider("TENANT1"),
+                "TENANT2", new ShardInfoProvider("TENANT2"));
+        val daoFactory = MultitenantDaoFactoryProvider.create(
+                sessionFactories,
+                shardManager,
+                shardingOptions,
+                shardInfoProvider,
+                new TerminalTransactionObserver()
+        );
+        lookupDao = daoFactory.createMultiTenantCacheableLookupDao(TestEntity.class, Map.of("TENANT1", new LookupCache<TestEntity>() {
 
-              private Map<String, TestEntity> cache = new HashMap<>();
+                    private Map<String, TestEntity> cache = new HashMap<>();
 
-              @Override
-              public void put(String key, TestEntity entity) {
-                cache.put(key, entity);
-              }
+                    @Override
+                    public void put(String key, TestEntity entity) {
+                        cache.put(key, entity);
+                    }
 
-              @Override
-              public boolean exists(String key) {
-                return cache.containsKey(key);
-              }
+                    @Override
+                    public boolean exists(String key) {
+                        return cache.containsKey(key);
+                    }
 
-              @Override
-              public TestEntity get(String key) {
-                return cache.get(key);
-              }
-            }, "TENANT2",
-            new LookupCache<TestEntity>() {
+                    @Override
+                    public TestEntity get(String key) {
+                        return cache.get(key);
+                    }
+                },
+                "TENANT2", new LookupCache<TestEntity>() {
 
-              private Map<String, TestEntity> cache = new HashMap<>();
+                    private Map<String, TestEntity> cache = new HashMap<>();
 
-              @Override
-              public void put(String key, TestEntity entity) {
-                cache.put(key, entity);
-              }
+                    @Override
+                    public void put(String key, TestEntity entity) {
+                        cache.put(key, entity);
+                    }
 
-              @Override
-              public boolean exists(String key) {
-                return cache.containsKey(key);
-              }
+                    @Override
+                    public boolean exists(String key) {
+                        return cache.containsKey(key);
+                    }
 
-              @Override
-              public TestEntity get(String key) {
-                return cache.get(key);
-              }
-            }),
-        shardingOptions, shardInfoProvider, new TerminalTransactionObserver());
-    phoneDao = new MultiTenantCacheableLookupDao<>(sessionFactories,
-        Phone.class,
-        new ShardCalculator<>(shardManager,
-            new ConsistentHashBucketIdExtractor<>(shardManager)),
-        Map.of("TENANT1",
-            new LookupCache<Phone>() {
+                    @Override
+                    public TestEntity get(String key) {
+                        return cache.get(key);
+                    }
+                }));
+        phoneDao = daoFactory.createMultiTenantCacheableLookupDao(Phone.class, Map.of("TENANT1", new LookupCache<Phone>() {
 
-              private Map<String, Phone> cache = new HashMap<>();
+                    private Map<String, Phone> cache = new HashMap<>();
 
-              @Override
-              public void put(String key, Phone entity) {
-                cache.put(key, entity);
-              }
+                    @Override
+                    public void put(String key, Phone entity) {
+                        cache.put(key, entity);
+                    }
 
-              @Override
-              public boolean exists(String key) {
-                return cache.containsKey(key);
-              }
+                    @Override
+                    public boolean exists(String key) {
+                        return cache.containsKey(key);
+                    }
 
-              @Override
-              public Phone get(String key) {
-                return cache.get(key);
-              }
-            }, "TENANT2",
-            new LookupCache<Phone>() {
+                    @Override
+                    public Phone get(String key) {
+                        return cache.get(key);
+                    }
+                },
+                "TENANT2", new LookupCache<Phone>() {
 
-              private Map<String, Phone> cache = new HashMap<>();
+                    private Map<String, Phone> cache = new HashMap<>();
 
-              @Override
-              public void put(String key, Phone entity) {
-                cache.put(key, entity);
-              }
+                    @Override
+                    public void put(String key, Phone entity) {
+                        cache.put(key, entity);
+                    }
 
-              @Override
-              public boolean exists(String key) {
-                return cache.containsKey(key);
-              }
+                    @Override
+                    public boolean exists(String key) {
+                        return cache.containsKey(key);
+                    }
 
-              @Override
-              public Phone get(String key) {
-                return cache.get(key);
-              }
-            }),
-        shardingOptions, shardInfoProvider, new TerminalTransactionObserver());
-    transactionDao = new MultiTenantCacheableRelationalDao<>(sessionFactories,
-        Transaction.class,
-        new ShardCalculator<>(shardManager,
-            new ConsistentHashBucketIdExtractor<>(
-                shardManager)),
-        Map.of("TENANT1",
-            new RelationalCache<Transaction>() {
+                    @Override
+                    public Phone get(String key) {
+                        return cache.get(key);
+                    }
+                }));
+        transactionDao = daoFactory.createMultiTenantCacheableRelationalDao(Transaction.class, Map.of("TENANT1", new RelationalCache<Transaction>() {
 
-              private Map<String, Object> cache = new HashMap<>();
+                    private Map<String, Object> cache = new HashMap<>();
 
-              @Override
-              public void put(
-                  String parentKey,
-                  Object key,
-                  Transaction entity) {
-                cache.put(StringUtils.join(parentKey, key, ':'), entity);
-              }
+                    @Override
+                    public void put(
+                            String parentKey,
+                            Object key,
+                            Transaction entity) {
+                        cache.put(StringUtils.join(parentKey, key, ':'), entity);
+                    }
 
-              @Override
-              public void put(
-                  String parentKey,
-                  List<Transaction> entities) {
-                cache.put(parentKey, entities);
-              }
+                    @Override
+                    public void put(
+                            String parentKey,
+                            List<Transaction> entities) {
+                        cache.put(parentKey, entities);
+                    }
 
-              @Override
-              public void put(
-                  String parentKey,
-                  int first,
-                  int numResults,
-                  List<Transaction> entities) {
-                cache.put(StringUtils.join(parentKey,
-                    first,
-                    numResults,
-                    ':'), entities);
-              }
+                    @Override
+                    public void put(
+                            String parentKey,
+                            int first,
+                            int numResults,
+                            List<Transaction> entities) {
+                        cache.put(StringUtils.join(parentKey,
+                                first,
+                                numResults,
+                                ':'), entities);
+                    }
 
-              @Override
-              public boolean exists(String parentKey, Object key) {
-                return cache.containsKey(StringUtils.join(parentKey,
-                    key,
-                    ':'));
-              }
+                    @Override
+                    public boolean exists(String parentKey, Object key) {
+                        return cache.containsKey(StringUtils.join(parentKey,
+                                key,
+                                ':'));
+                    }
 
-              @Override
-              public Transaction get(String parentKey, Object key) {
-                return (Transaction) cache.get(StringUtils.join(parentKey,
-                    key,
-                    ':'));
-              }
+                    @Override
+                    public Transaction get(String parentKey, Object key) {
+                        return (Transaction) cache.get(StringUtils.join(parentKey,
+                                key,
+                                ':'));
+                    }
 
-              @Override
-              public List<Transaction> select(String parentKey) {
-                return (List<Transaction>) cache.get(parentKey);
-              }
+                    @Override
+                    public List<Transaction> select(String parentKey) {
+                        return (List<Transaction>) cache.get(parentKey);
+                    }
 
-              @Override
-              public List<Transaction> select(
-                  String parentKey,
-                  int first,
-                  int numResults) {
-                return (List<Transaction>) cache.get(StringUtils.join(
-                    parentKey,
-                    first,
-                    numResults,
-                    ':'));
-              }
-            }, "TENANT2",
-            new RelationalCache<Transaction>() {
+                    @Override
+                    public List<Transaction> select(
+                            String parentKey,
+                            int first,
+                            int numResults) {
+                        return (List<Transaction>) cache.get(StringUtils.join(
+                                parentKey,
+                                first,
+                                numResults,
+                                ':'));
+                    }
+                },
+                "TENANT2", new RelationalCache<Transaction>() {
 
-              private Map<String, Object> cache = new HashMap<>();
+                    private Map<String, Object> cache = new HashMap<>();
 
-              @Override
-              public void put(
-                  String parentKey,
-                  Object key,
-                  Transaction entity) {
-                cache.put(StringUtils.join(parentKey, key, ':'), entity);
-              }
+                    @Override
+                    public void put(
+                            String parentKey,
+                            Object key,
+                            Transaction entity) {
+                        cache.put(StringUtils.join(parentKey, key, ':'), entity);
+                    }
 
-              @Override
-              public void put(
-                  String parentKey,
-                  List<Transaction> entities) {
-                cache.put(parentKey, entities);
-              }
+                    @Override
+                    public void put(
+                            String parentKey,
+                            List<Transaction> entities) {
+                        cache.put(parentKey, entities);
+                    }
 
-              @Override
-              public void put(
-                  String parentKey,
-                  int first,
-                  int numResults,
-                  List<Transaction> entities) {
-                cache.put(StringUtils.join(parentKey,
-                    first,
-                    numResults,
-                    ':'), entities);
-              }
+                    @Override
+                    public void put(
+                            String parentKey,
+                            int first,
+                            int numResults,
+                            List<Transaction> entities) {
+                        cache.put(StringUtils.join(parentKey,
+                                first,
+                                numResults,
+                                ':'), entities);
+                    }
 
-              @Override
-              public boolean exists(String parentKey, Object key) {
-                return cache.containsKey(StringUtils.join(parentKey,
-                    key,
-                    ':'));
-              }
+                    @Override
+                    public boolean exists(String parentKey, Object key) {
+                        return cache.containsKey(StringUtils.join(parentKey,
+                                key,
+                                ':'));
+                    }
 
-              @Override
-              public Transaction get(String parentKey, Object key) {
-                return (Transaction) cache.get(StringUtils.join(parentKey,
-                    key,
-                    ':'));
-              }
+                    @Override
+                    public Transaction get(String parentKey, Object key) {
+                        return (Transaction) cache.get(StringUtils.join(parentKey,
+                                key,
+                                ':'));
+                    }
 
-              @Override
-              public List<Transaction> select(String parentKey) {
-                return (List<Transaction>) cache.get(parentKey);
-              }
+                    @Override
+                    public List<Transaction> select(String parentKey) {
+                        return (List<Transaction>) cache.get(parentKey);
+                    }
 
-              @Override
-              public List<Transaction> select(
-                  String parentKey,
-                  int first,
-                  int numResults) {
-                return (List<Transaction>) cache.get(StringUtils.join(
-                    parentKey,
-                    first,
-                    numResults,
-                    ':'));
-              }
-            }), shardingOptions, shardInfoProvider, new TerminalTransactionObserver());
-    auditDao = new MultiTenantCacheableRelationalDao<>(sessionFactories,
-        Audit.class,
-        new ShardCalculator<>(shardManager,
-            new ConsistentHashBucketIdExtractor<>(shardManager)),
-        Map.of("TENANT1", new RelationalCache<Audit>() {
+                    @Override
+                    public List<Transaction> select(
+                            String parentKey,
+                            int first,
+                            int numResults) {
+                        return (List<Transaction>) cache.get(StringUtils.join(
+                                parentKey,
+                                first,
+                                numResults,
+                                ':'));
+                    }
+                }));
+        auditDao = daoFactory.createMultiTenantCacheableRelationalDao(Audit.class, Map.of("TENANT1", new RelationalCache<Audit>() {
 
-          private Map<String, Object> cache = new HashMap<>();
+                    private Map<String, Object> cache = new HashMap<>();
 
-          @Override
-          public void put(String parentKey, Object key, Audit entity) {
-            cache.put(StringUtils.join(parentKey, key, ':'), entity);
-          }
+                    @Override
+                    public void put(String parentKey, Object key, Audit entity) {
+                        cache.put(StringUtils.join(parentKey, key, ':'), entity);
+                    }
 
-          @Override
-          public void put(String parentKey, List<Audit> entities) {
-            cache.put(parentKey, entities);
-          }
+                    @Override
+                    public void put(String parentKey, List<Audit> entities) {
+                        cache.put(parentKey, entities);
+                    }
 
-          @Override
-          public void put(
-              String parentKey,
-              int first,
-              int numResults,
-              List<Audit> entities) {
-            cache.put(StringUtils.join(parentKey, first, numResults, ':'),
-                entities);
-          }
+                    @Override
+                    public void put(
+                            String parentKey,
+                            int first,
+                            int numResults,
+                            List<Audit> entities) {
+                        cache.put(StringUtils.join(parentKey, first, numResults, ':'),
+                                entities);
+                    }
 
-          @Override
-          public boolean exists(String parentKey, Object key) {
-            return cache.containsKey(StringUtils.join(parentKey, key, ':'));
-          }
+                    @Override
+                    public boolean exists(String parentKey, Object key) {
+                        return cache.containsKey(StringUtils.join(parentKey, key, ':'));
+                    }
 
-          @Override
-          public Audit get(String parentKey, Object key) {
-            return (Audit) cache.get(StringUtils.join(parentKey, key, ':'));
-          }
+                    @Override
+                    public Audit get(String parentKey, Object key) {
+                        return (Audit) cache.get(StringUtils.join(parentKey, key, ':'));
+                    }
 
-          @Override
-          public List<Audit> select(String parentKey) {
-            return (List<Audit>) cache.get(parentKey);
-          }
+                    @Override
+                    public List<Audit> select(String parentKey) {
+                        return (List<Audit>) cache.get(parentKey);
+                    }
 
-          @Override
-          public List<Audit> select(
-              String parentKey,
-              int first,
-              int numResults) {
-            return (List<Audit>) cache.get(StringUtils.join(parentKey,
-                first,
-                numResults,
-                ':'));
-          }
-        }, "TENANT2", new RelationalCache<Audit>() {
+                    @Override
+                    public List<Audit> select(
+                            String parentKey,
+                            int first,
+                            int numResults) {
+                        return (List<Audit>) cache.get(StringUtils.join(parentKey,
+                                first,
+                                numResults,
+                                ':'));
+                    }
+                },
+                "TENANT2", new RelationalCache<Audit>() {
 
-          private Map<String, Object> cache = new HashMap<>();
+                    private Map<String, Object> cache = new HashMap<>();
 
-          @Override
-          public void put(String parentKey, Object key, Audit entity) {
-            cache.put(StringUtils.join(parentKey, key, ':'), entity);
-          }
+                    @Override
+                    public void put(String parentKey, Object key, Audit entity) {
+                        cache.put(StringUtils.join(parentKey, key, ':'), entity);
+                    }
 
-          @Override
-          public void put(String parentKey, List<Audit> entities) {
-            cache.put(parentKey, entities);
-          }
+                    @Override
+                    public void put(String parentKey, List<Audit> entities) {
+                        cache.put(parentKey, entities);
+                    }
 
-          @Override
-          public void put(
-              String parentKey,
-              int first,
-              int numResults,
-              List<Audit> entities) {
-            cache.put(StringUtils.join(parentKey, first, numResults, ':'),
-                entities);
-          }
+                    @Override
+                    public void put(
+                            String parentKey,
+                            int first,
+                            int numResults,
+                            List<Audit> entities) {
+                        cache.put(StringUtils.join(parentKey, first, numResults, ':'),
+                                entities);
+                    }
 
-          @Override
-          public boolean exists(String parentKey, Object key) {
-            return cache.containsKey(StringUtils.join(parentKey, key, ':'));
-          }
+                    @Override
+                    public boolean exists(String parentKey, Object key) {
+                        return cache.containsKey(StringUtils.join(parentKey, key, ':'));
+                    }
 
-          @Override
-          public Audit get(String parentKey, Object key) {
-            return (Audit) cache.get(StringUtils.join(parentKey, key, ':'));
-          }
+                    @Override
+                    public Audit get(String parentKey, Object key) {
+                        return (Audit) cache.get(StringUtils.join(parentKey, key, ':'));
+                    }
 
-          @Override
-          public List<Audit> select(String parentKey) {
-            return (List<Audit>) cache.get(parentKey);
-          }
+                    @Override
+                    public List<Audit> select(String parentKey) {
+                        return (List<Audit>) cache.get(parentKey);
+                    }
 
-          @Override
-          public List<Audit> select(
-              String parentKey,
-              int first,
-              int numResults) {
-            return (List<Audit>) cache.get(StringUtils.join(parentKey,
-                first,
-                numResults,
-                ':'));
-          }
-        }), shardingOptions, shardInfoProvider, new TerminalTransactionObserver());
-  }
+                    @Override
+                    public List<Audit> select(
+                            String parentKey,
+                            int first,
+                            int numResults) {
+                        return (List<Audit>) cache.get(StringUtils.join(parentKey,
+                                first,
+                                numResults,
+                                ':'));
+                    }
+                }));
+    }
 
   @AfterEach
   public void after() {

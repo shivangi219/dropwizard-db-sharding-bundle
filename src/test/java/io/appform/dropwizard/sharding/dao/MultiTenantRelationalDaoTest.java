@@ -31,7 +31,6 @@ import io.appform.dropwizard.sharding.observers.internal.TerminalTransactionObse
 import io.appform.dropwizard.sharding.scroll.ScrollResult;
 import io.appform.dropwizard.sharding.sharding.BalancedShardManager;
 import io.appform.dropwizard.sharding.sharding.ShardManager;
-import io.appform.dropwizard.sharding.sharding.impl.ConsistentHashBucketIdExtractor;
 import io.appform.dropwizard.sharding.utils.ShardCalculator;
 import lombok.val;
 import org.apache.commons.lang3.RandomUtils;
@@ -98,8 +97,6 @@ public class MultiTenantRelationalDaoTest {
     this.shardManager = Map.of("TENANT1",
         new BalancedShardManager(sessionFactories.get("TENANT1").size()),
         "TENANT2", new BalancedShardManager(sessionFactories.get("TENANT2").size()));
-    this.shardCalculator = new ShardCalculator<>(shardManager,
-        new ConsistentHashBucketIdExtractor<>(shardManager));
     final Map<String, ShardingBundleOptions> shardingOptions = Map.of("TENANT1",
         new ShardingBundleOptions(), "TENANT2", new ShardingBundleOptions());
     final Map<String, ShardInfoProvider> shardInfoProvider = Map.of("TENANT1",
@@ -107,13 +104,16 @@ public class MultiTenantRelationalDaoTest {
         "TENANT2", new ShardInfoProvider("TENANT2"));
     final TransactionObserver observer = new EntityClassThreadLocalObserver(
         new DaoClassLocalObserver(new TerminalTransactionObserver()));
-    relationalDao = new MultiTenantRelationalDao<>(sessionFactories, RelationalEntity.class,
-        this.shardCalculator,
-        shardingOptions, shardInfoProvider, observer);
-    relationalWithAIDao = new MultiTenantRelationalDao<>(sessionFactories,
-        RelationalEntityWithAIKey.class,
-        this.shardCalculator,
-        shardingOptions, shardInfoProvider, observer);
+    val daoFactory = MultitenantDaoFactoryProvider.create(
+            sessionFactories,
+            shardManager,
+            shardingOptions,
+            shardInfoProvider,
+            observer
+    );
+    relationalDao = daoFactory.createMultiTenantRelationalDao(RelationalEntity.class);
+    relationalWithAIDao = daoFactory.createMultiTenantRelationalDao(RelationalEntityWithAIKey.class);
+    this.shardCalculator = relationalDao.getShardCalculator();
   }
 
   @AfterEach

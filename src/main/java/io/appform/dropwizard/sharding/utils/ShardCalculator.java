@@ -52,7 +52,11 @@ public class ShardCalculator<T> {
     }
 
     public boolean isOnValidShard(T key) {
-        int bucketId = extractor.bucketId(key);
+        return isOnValidShard(DBShardingBundleBase.DEFAULT_NAMESPACE, key);
+    }
+
+    public boolean isOnValidShard(String tenantId, T key) {
+        int bucketId = extractor.bucketId(tenantId, key);
         return shardManagers.get(DBShardingBundleBase.DEFAULT_NAMESPACE).isMappedToValidShard(bucketId);
     }
 }

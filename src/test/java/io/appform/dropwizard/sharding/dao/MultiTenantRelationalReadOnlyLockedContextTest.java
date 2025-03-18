@@ -9,15 +9,7 @@ import io.appform.dropwizard.sharding.dao.listeners.LoggingListener;
 import io.appform.dropwizard.sharding.observers.internal.ListenerTriggeringObserver;
 import io.appform.dropwizard.sharding.sharding.BalancedShardManager;
 import io.appform.dropwizard.sharding.sharding.ShardManager;
-import io.appform.dropwizard.sharding.sharding.impl.ConsistentHashBucketIdExtractor;
-import io.appform.dropwizard.sharding.utils.ShardCalculator;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-import lombok.SneakyThrows;
-import lombok.ToString;
-import lombok.val;
+import lombok.*;
 import org.hibernate.SessionFactory;
 import org.hibernate.boot.registry.StandardServiceRegistry;
 import org.hibernate.boot.registry.StandardServiceRegistryBuilder;
@@ -29,13 +21,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import javax.persistence.Column;
-import javax.persistence.Entity;
-import javax.persistence.GeneratedValue;
-import javax.persistence.GenerationType;
-import javax.persistence.Id;
-import javax.persistence.Table;
-import javax.persistence.Transient;
+import javax.persistence.*;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -79,9 +65,6 @@ public class MultiTenantRelationalReadOnlyLockedContextTest {
     Map<String, ShardManager> shardManager = new HashMap<>();
     sessionFactories.forEach((tenant, sessionFactory) ->
         shardManager.put(tenant, new BalancedShardManager(sessionFactory.size())));
-    final ShardCalculator<String> shardCalculator = new ShardCalculator<>(shardManager,
-        new ConsistentHashBucketIdExtractor<>(
-            shardManager));
     final Map<String, ShardingBundleOptions> shardingOptions = Map.of("TENANT1",
         new ShardingBundleOptions(), "TENANT2", new ShardingBundleOptions());
 
@@ -90,16 +73,15 @@ public class MultiTenantRelationalReadOnlyLockedContextTest {
         "TENANT2", new ShardInfoProvider("TENANT2"));
     val observer = new TimerObserver(
         new ListenerTriggeringObserver().addListener(new LoggingListener()));
-
-    companyRelationalDao = new MultiTenantRelationalDao<>(sessionFactories, Company.class,
-        shardCalculator, shardingOptions,
-        shardInfoProvider, observer);
-    departmentRelationalDao = new MultiTenantRelationalDao<>(sessionFactories, Department.class,
-        shardCalculator, shardingOptions,
-        shardInfoProvider, observer);
-    ceoRelationalDao = new MultiTenantRelationalDao<>(sessionFactories, Ceo.class, shardCalculator,
-        shardingOptions,
-        shardInfoProvider, observer);
+    val daoFactory = MultitenantDaoFactoryProvider.create(
+            sessionFactories,
+            shardManager,
+            shardingOptions,
+            shardInfoProvider,
+            observer);
+    companyRelationalDao = daoFactory.createMultiTenantRelationalDao(Company.class);
+    departmentRelationalDao = daoFactory.createMultiTenantRelationalDao(Department.class);
+    ceoRelationalDao = daoFactory.createMultiTenantRelationalDao(Ceo.class);
   }
 
   @AfterEach

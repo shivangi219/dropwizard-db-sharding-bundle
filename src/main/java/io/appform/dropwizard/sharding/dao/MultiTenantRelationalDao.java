@@ -296,7 +296,7 @@ public class MultiTenantRelationalDao<T> implements ShardedDao<T> {
      *                                  as @Id, if the designated key field is not accessible, or if
      *                                  it is not of type String.
      */
-    public MultiTenantRelationalDao(
+     MultiTenantRelationalDao(
             Map<String, List<SessionFactory>> sessionFactories,
             Class<T> entityClass,
             ShardCalculator<String> shardCalculator,

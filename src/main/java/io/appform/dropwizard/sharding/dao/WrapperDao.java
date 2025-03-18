@@ -17,7 +17,6 @@
 
 package io.appform.dropwizard.sharding.dao;
 
-import io.appform.dropwizard.sharding.DBShardingBundleBase;
 import io.appform.dropwizard.sharding.sharding.ShardedTransaction;
 import io.appform.dropwizard.sharding.utils.ShardCalculator;
 import io.appform.dropwizard.sharding.utils.TransactionHandler;
@@ -50,20 +49,7 @@ public class WrapperDao<T, DaoType extends AbstractDAO<T>> implements ShardedDao
     @Getter
     private final ShardCalculator<String> shardCalculator;
 
-    /**
-     * Create a relational DAO.
-     *
-     * @param sessionFactories List of session factories. One for each shard.
-     * @param daoClass         Class for the dao.
-     * @param shardCalculator  {@link ShardCalculator} for finding shard
-     */
-    public WrapperDao(List<SessionFactory> sessionFactories,
-                      Class<DaoType> daoClass,
-                      ShardCalculator<String> shardCalculator) {
-        this(DBShardingBundleBase.DEFAULT_NAMESPACE, sessionFactories, daoClass, shardCalculator);
-    }
-
-    public WrapperDao(String dbNamespace,
+     WrapperDao(String dbNamespace,
                       List<SessionFactory> sessionFactories,
                       Class<DaoType> daoClass,
                       ShardCalculator<String> shardCalculator) {
@@ -79,7 +65,7 @@ public class WrapperDao<T, DaoType extends AbstractDAO<T>> implements ShardedDao
      * @param extraConstructorParamObjects Objects for constructor parameters to the DAO other than SessionFactory
      * @param shardCalculator              {@link ShardCalculator} for finding shard
      */
-    public WrapperDao(
+     WrapperDao(
             String dbNamespace,
             List<SessionFactory> sessionFactories, Class<DaoType> daoClass,
             Class[] extraConstructorParamClasses,

@@ -19,13 +19,16 @@ package io.appform.dropwizard.sharding.dao;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
+import io.appform.dropwizard.sharding.DBShardingBundleBase;
+import io.appform.dropwizard.sharding.ShardInfoProvider;
+import io.appform.dropwizard.sharding.config.ShardingBundleOptions;
 import io.appform.dropwizard.sharding.dao.testdata.OrderDao;
 import io.appform.dropwizard.sharding.dao.testdata.entities.Order;
 import io.appform.dropwizard.sharding.dao.testdata.entities.OrderItem;
+import io.appform.dropwizard.sharding.observers.internal.TerminalTransactionObserver;
 import io.appform.dropwizard.sharding.sharding.BalancedShardManager;
 import io.appform.dropwizard.sharding.sharding.ShardManager;
-import io.appform.dropwizard.sharding.sharding.impl.ConsistentHashBucketIdExtractor;
-import io.appform.dropwizard.sharding.utils.ShardCalculator;
+import lombok.val;
 import org.hibernate.SessionFactory;
 import org.hibernate.boot.registry.StandardServiceRegistry;
 import org.hibernate.boot.registry.StandardServiceRegistryBuilder;
@@ -35,6 +38,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -67,8 +71,16 @@ public class WrapperDaoTest {
             sessionFactories.add(buildSessionFactory(String.format("db_%d", i)));
         }
         final ShardManager shardManager = new BalancedShardManager(sessionFactories.size());
-        dao = new WrapperDao<>(sessionFactories, OrderDao.class,
-                new ShardCalculator<>(shardManager, new ConsistentHashBucketIdExtractor<>(shardManager)));
+        final ShardingBundleOptions shardingOptions = new ShardingBundleOptions();
+        final ShardInfoProvider shardInfoProvider = new ShardInfoProvider("default");
+        val daoFactory = MultitenantDaoFactoryProvider.create(
+                Map.of(DBShardingBundleBase.DEFAULT_NAMESPACE, sessionFactories),
+                Map.of(DBShardingBundleBase.DEFAULT_NAMESPACE, shardManager),
+                Map.of(DBShardingBundleBase.DEFAULT_NAMESPACE, shardingOptions),
+                Map.of(DBShardingBundleBase.DEFAULT_NAMESPACE, shardInfoProvider),
+                new TerminalTransactionObserver()
+        );
+        dao = daoFactory.createWrapperDao(DBShardingBundleBase.DEFAULT_NAMESPACE, OrderDao.class);
 
     }
 
