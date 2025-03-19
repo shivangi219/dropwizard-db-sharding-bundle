@@ -52,7 +52,7 @@ public class MultiTenantCacheableLookupDao<T> extends MultiTenantLookupDao<T> {
    *
    * @param sessionFactories  A list of SessionFactory instances for database access.
    * @param entityClass       The Class representing the entity type handled by the DAO.
-   * @param shardManagers   A Map of ShardManagers for instantiating ShardCalculator.
+   * @param shardManagers     A map of ShardManager to instantiate ShardCalculator.
    * @param cache             The LookupCache implementation for caching entities.
    * @param shardingOptions   ShardingBundleOptions for configuring sharding behavior.
    * @param shardInfoProvider The ShardInfoProvider for obtaining shard information.

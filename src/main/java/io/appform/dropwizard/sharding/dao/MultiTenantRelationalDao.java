@@ -290,7 +290,7 @@ public class MultiTenantRelationalDao<T> implements ShardedDao<T> {
      *                           shards.
      * @param entityClass        The Class representing the type of entities managed by this
      *                           RelationalDao.
-     * @param shardManagers    A map of ShardManagers to instantiate ShardCalculator
+     * @param shardManagers      A map of ShardManager to instantiate ShardCalculator.
      * @param shardInfoProviders A ShardInfoProvider for retrieving shard information.
      * @param observer           A TransactionObserver for monitoring transaction events.
      * @throws IllegalArgumentException If the entity class does not have exactly one field designated

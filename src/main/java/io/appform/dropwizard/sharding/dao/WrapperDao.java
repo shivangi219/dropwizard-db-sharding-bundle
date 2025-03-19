@@ -57,7 +57,7 @@ public class WrapperDao<T, DaoType extends AbstractDAO<T>> implements ShardedDao
      *
      * @param sessionFactories List of session factories. One for each shard.
      * @param daoClass         Class for the dao.
-     * @param shardManagers  A map of for ShardManager per tenant for instantiating ShardCalculator
+     * @param shardManagers    A map of ShardManager to instantiate ShardCalculator.
      */
     public WrapperDao(String dbNamespace,
                       List<SessionFactory> sessionFactories,
@@ -73,7 +73,7 @@ public class WrapperDao<T, DaoType extends AbstractDAO<T>> implements ShardedDao
      * @param daoClass                     Class for the dao.
      * @param extraConstructorParamClasses Class names for constructor parameters to the DAO other than SessionFactory
      * @param extraConstructorParamObjects Objects for constructor parameters to the DAO other than SessionFactory
-     * @param shardManagers                A map of for ShardManager per tenant for instantiating ShardCalculator
+     * @param shardManagers                A map of ShardManager to instantiateShardCalculator
      */
      public WrapperDao(
              String dbNamespace,

@@ -121,7 +121,7 @@ public class MultiTenantLookupDao<T> implements ShardedDao<T> {
      *                           shards.
      * @param entityClass        The Class representing the type of entities managed by this
      *                           LookupDao.
-     * @param shardManagers    A map of ShardManagers to instantiate ShardCalculator
+     * @param shardManagers      A map of ShardManager to instantiate ShardCalculator.
      * @param shardingOptions    ShardingBundleOptions specifying additional sharding configuration
      *                           options.
      * @param shardInfoProviders A ShardInfoProvider for retrieving shard information.

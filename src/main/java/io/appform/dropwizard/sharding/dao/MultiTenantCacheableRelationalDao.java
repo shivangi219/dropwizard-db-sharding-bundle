@@ -50,7 +50,7 @@ public class MultiTenantCacheableRelationalDao<T> extends MultiTenantRelationalD
    * @param sessionFactories  A list of SessionFactory instances for database access across shards.
    * @param entityClass       The Class representing the type of entities managed by this
    *                          CacheableRelationalDao.
-   * @param shardManagers   A Map of ShardManagers for instantiating ShardCalculator.
+   * @param shardManagers     A map of ShardManager to instantiate ShardCalculator.
    * @param cache             A RelationalCache instance for caching entity data.
    * @param shardInfoProvider A ShardInfoProvider for retrieving shard information.
    * @param observer          A TransactionObserver for monitoring transaction events.
