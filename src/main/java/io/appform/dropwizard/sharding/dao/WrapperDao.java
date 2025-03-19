@@ -17,8 +17,9 @@
 
 package io.appform.dropwizard.sharding.dao;
 
-import io.appform.dropwizard.sharding.DBShardingBundleBase;
+import io.appform.dropwizard.sharding.sharding.ShardManager;
 import io.appform.dropwizard.sharding.sharding.ShardedTransaction;
+import io.appform.dropwizard.sharding.sharding.impl.ConsistentHashBucketIdExtractor;
 import io.appform.dropwizard.sharding.utils.ShardCalculator;
 import io.appform.dropwizard.sharding.utils.TransactionHandler;
 import io.dropwizard.hibernate.AbstractDAO;
@@ -31,6 +32,7 @@ import org.hibernate.SessionFactory;
 
 import java.lang.reflect.InvocationTargetException;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
@@ -55,19 +57,13 @@ public class WrapperDao<T, DaoType extends AbstractDAO<T>> implements ShardedDao
      *
      * @param sessionFactories List of session factories. One for each shard.
      * @param daoClass         Class for the dao.
-     * @param shardCalculator  {@link ShardCalculator} for finding shard
+     * @param shardManagers  A map of for ShardManager per tenant for instantiating ShardCalculator
      */
-    public WrapperDao(List<SessionFactory> sessionFactories,
-                      Class<DaoType> daoClass,
-                      ShardCalculator<String> shardCalculator) {
-        this(DBShardingBundleBase.DEFAULT_NAMESPACE, sessionFactories, daoClass, shardCalculator);
-    }
-
     public WrapperDao(String dbNamespace,
                       List<SessionFactory> sessionFactories,
                       Class<DaoType> daoClass,
-                      ShardCalculator<String> shardCalculator) {
-        this(dbNamespace, sessionFactories, daoClass, null, null, shardCalculator);
+                      Map<String, ShardManager> shardManagers) {
+        this(dbNamespace, sessionFactories, daoClass, null, null, shardManagers);
     }
 
     /**
@@ -77,15 +73,16 @@ public class WrapperDao<T, DaoType extends AbstractDAO<T>> implements ShardedDao
      * @param daoClass                     Class for the dao.
      * @param extraConstructorParamClasses Class names for constructor parameters to the DAO other than SessionFactory
      * @param extraConstructorParamObjects Objects for constructor parameters to the DAO other than SessionFactory
-     * @param shardCalculator              {@link ShardCalculator} for finding shard
+     * @param shardManagers                A map of for ShardManager per tenant for instantiating ShardCalculator
      */
-    public WrapperDao(
-            String dbNamespace,
-            List<SessionFactory> sessionFactories, Class<DaoType> daoClass,
-            Class[] extraConstructorParamClasses,
-            Class[] extraConstructorParamObjects, ShardCalculator<String> shardCalculator) {
+     public WrapperDao(
+             String dbNamespace,
+             List<SessionFactory> sessionFactories, Class<DaoType> daoClass,
+             Class[] extraConstructorParamClasses,
+             Class[] extraConstructorParamObjects,
+             Map<String, ShardManager> shardManagers) {
         this.dbNamespace = dbNamespace;
-        this.shardCalculator = shardCalculator;
+        this.shardCalculator = new ShardCalculator<>(shardManagers, new ConsistentHashBucketIdExtractor<>(shardManagers));
         this.daos = sessionFactories.stream().map((SessionFactory sessionFactory) -> {
             Enhancer enhancer = new Enhancer();
             enhancer.setUseFactory(false);
