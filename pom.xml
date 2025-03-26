@@ -53,7 +53,7 @@
         <url>https://github.com/santanusinha/dropwizard-db-sharding-bundle/issues</url>
     </issueManagement>
 
-    <ciManagement>
+<!--    <ciManagement>
         <system>Travis CI</system>
         <url>https://travis-ci.org/santanusinha/dropwizard-db-sharding-bundle</url>
     </ciManagement>
@@ -67,7 +67,69 @@
             <id>ossrh</id>
             <url>https://oss.sonatype.org/service/local/staging/deploy/maven2/</url>
         </repository>
+    </distributionManagement>-->
+
+    <repositories>
+        <repository>
+            <id>phonepe-releases</id>
+            <name>releases</name>
+            <url>https://artifactory.phonepe.com/repository/releases</url>
+        </repository>
+        <repository>
+            <id>phonepe-snapshots</id>
+            <name>snapshots</name>
+            <url>https://artifactory.phonepe.com/repository/snapshots</url>
+        </repository>
+        <repository>
+            <releases>
+                <enabled>true</enabled>
+                <updatePolicy>always</updatePolicy>
+                <checksumPolicy>warn</checksumPolicy>
+            </releases>
+            <snapshots>
+                <enabled>false</enabled>
+                <updatePolicy>never</updatePolicy>
+                <checksumPolicy>fail</checksumPolicy>
+            </snapshots>
+            <id>HDPReleases</id>
+            <name>HDP Releases</name>
+            <url>https://repo.hortonworks.com/content/repositories/releases/</url>
+            <layout>default</layout>
+        </repository>
+        <repository>
+            <releases>
+                <enabled>true</enabled>
+                <updatePolicy>always</updatePolicy>
+                <checksumPolicy>warn</checksumPolicy>
+            </releases>
+            <snapshots>
+                <enabled>true</enabled>
+                <updatePolicy>never</updatePolicy>
+                <checksumPolicy>fail</checksumPolicy>
+            </snapshots>
+            <id>HDPPublic</id>
+            <name>HDP Public</name>
+            <url>https://repo.hortonworks.com/content/repositories/public/</url>
+            <layout>default</layout>
+        </repository>
+        <repository>
+            <id>clojars.org</id>
+            <url>https://clojars.org/repo</url>
+        </repository>
+    </repositories>
+
+    <distributionManagement>
+        <repository>
+            <id>phonepe-releases</id>
+            <name>releases</name>
+            <url>https://artifactory.phonepe.com/repository/releases</url>
+        </repository>
+        <snapshotRepository>
+            <id>phonepe-snapshots</id>
+            <url>https://artifactory.phonepe.com/repository/snapshots</url>
+        </snapshotRepository>
     </distributionManagement>
+
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -318,12 +380,12 @@
             </plugin>
         </plugins>
     </build>
-    <repositories>
+<!--    <repositories>
         <repository>
             <id>clojars.org</id>
             <url>https://clojars.org/repo</url>
         </repository>
-    </repositories>
+    </repositories>-->
 
     <profiles>
         <profile>

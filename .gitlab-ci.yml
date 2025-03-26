@@ -1,0 +1,102 @@
+.default: &default
+  only:
+    - merge_requests
+    - web
+
+.default_tag: &default_tag
+  tags:
+    - backend-docker-large
+
+image: docker.phonepe.com:5000/pp-maven:3.8.4-openjdk-17
+
+stages:
+  - build
+  - quality
+  - deploy
+  - release
+
+compile:
+  stage: build
+  <<: *default
+  <<: *default_tag
+  script:
+    - mvn clean package -U -DskipTests
+  except:
+    - master
+    - develop
+  when: manual
+
+quality:
+  stage: quality
+  <<: *default_tag
+  only:
+    - merge_requests
+  script:
+    - mvn clean package -U -Pquality_check -Dsonar.pullrequest.key=$CI_MERGE_REQUEST_IID -Dsonar.pullrequest.branch=$CI_MERGE_REQUEST_SOURCE_BRANCH_NAME -Dsonar.pullrequest.base=$CI_MERGE_REQUEST_TARGET_BRANCH_NAME
+  artifacts:
+    reports:
+      junit:
+        - target/surefire-reports/TEST-*.xml
+  when: manual
+
+deploy_snapshot:
+  stage: deploy
+  <<: *default_tag
+  only:
+    - web
+  script:
+    - mvn deploy -DskipTests
+  when: manual
+  except:
+    - develop
+  allow_failure: false
+
+docker_build:
+  stage: deploy
+  <<: *default_tag
+  only:
+    - web
+  script:
+    - mvn -U clean compile package docker:build docker:push -Pdocker -DskipTests
+  when: manual
+  except:
+    - develop
+  allow_failure: false
+
+release:
+  stage: release
+  <<: *default_tag
+  script:
+    - printenv
+    - git remote set-url origin "git@gitlab.phonepe.com:${CI_PROJECT_PATH}.git"
+    - git fetch
+    - git checkout master
+    - git pull origin master
+    - git checkout develop
+    - git pull origin develop
+    - mvn -U jgitflow:release-start jgitflow:release-finish -D maven.release.ignore.snapshots=true
+    - git push --all
+    - git push --tags origin
+  when: manual
+  only:
+    refs:
+      - develop
+
+
+"Bump Version":
+  <<: *default_tag
+  stage: release
+  script:
+    - git remote set-url origin "git@gitlab.phonepe.com:${CI_PROJECT_PATH}.git"
+    - git checkout develop
+    - git pull origin develop
+    - mvn build-helper:parse-version versions:set -DnewVersion="\${parsedVersion.majorVersion}.\${parsedVersion.minorVersion}.\${parsedVersion.nextIncrementalVersion}\${parsedVersion.qualifier?}" versions:commit
+    - VERSION="$(mvn -q help:evaluate -Dexpression=project.version -DforceStdout)"
+    - git commit -am "[Gitlab CI] Version bumped to ${VERSION} by ${GITLAB_USER_NAME}"
+    - git push origin develop
+  only:
+    refs:
+      - develop
+    variables:
+      - $BUMP_VERSION == "true"
+  when: manual
