@@ -17,6 +17,7 @@
 
 package io.appform.dropwizard.sharding.utils;
 
+import io.appform.dropwizard.sharding.DBShardingBundleBase;
 import io.appform.dropwizard.sharding.sharding.BucketIdExtractor;
 import io.appform.dropwizard.sharding.sharding.ShardManager;
 import lombok.extern.slf4j.Slf4j;
@@ -37,13 +38,17 @@ public class ShardCalculator<T> {
         this.extractor = extractor;
     }
 
+    public int shardId(T key) {
+        return shardId(DBShardingBundleBase.DEFAULT_NAMESPACE, key);
+    }
+
     public int shardId(String tenantId, T key) {
         int bucketId = extractor.bucketId(tenantId, key);
         return shardManagers.get(tenantId).shardForBucket(bucketId);
     }
 
-    public boolean isOnValidShard(String tenantId, T key) {
-        int bucketId = extractor.bucketId(tenantId, key);
-        return shardManagers.get(tenantId).isMappedToValidShard(bucketId);
+    public boolean isOnValidShard(T key) {
+        int bucketId = extractor.bucketId(DBShardingBundleBase.DEFAULT_NAMESPACE, key);
+        return shardManagers.get(DBShardingBundleBase.DEFAULT_NAMESPACE).isMappedToValidShard(bucketId);
     }
 }
