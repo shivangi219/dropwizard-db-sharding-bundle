@@ -244,7 +244,7 @@ public abstract class MultiTenantDBShardingBundleBase<T extends Configuration> e
     Preconditions.checkArgument(
             this.sessionFactories.containsKey(tenantId) && this.shardManagers.containsKey(tenantId),
             "Unknown tenant: " + tenantId);
-    return new WrapperDao<>(tenantId, this.sessionFactories.get(tenantId), daoTypeClass, this.shardManagers);
+    return new WrapperDao<>(tenantId, this.sessionFactories.get(tenantId), daoTypeClass, this.shardManagers.get(tenantId));
   }
 
   public <EntityType, DaoType extends AbstractDAO<EntityType>, T extends Configuration>
@@ -256,6 +256,6 @@ public abstract class MultiTenantDBShardingBundleBase<T extends Configuration> e
             this.sessionFactories.containsKey(tenantId) && this.shardManagers.containsKey(tenantId),
             "Unknown tenant: " + tenantId);
     return new WrapperDao<>(tenantId, this.sessionFactories.get(tenantId), daoTypeClass,
-        extraConstructorParamClasses, extraConstructorParamObjects, this.shardManagers);
+        extraConstructorParamClasses, extraConstructorParamObjects, this.shardManagers.get(tenantId));
   }
 }

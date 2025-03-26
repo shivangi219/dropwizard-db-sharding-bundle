@@ -38,6 +38,13 @@ public class CacheableLookupDao<T> extends LookupDao<T> {
     private final String dbNamespace;
     private final MultiTenantCacheableLookupDao<T> delegate;
 
+    /**
+     * Constructs a CacheableLookupDao instance with caching support.
+     *
+     * This constructor initializes a CacheableLookupDao instance with the provided parameters, enabling caching for
+     * improved performance and data retrieval optimization.
+     *
+     */
     public CacheableLookupDao(final String tenantId,
                               final MultiTenantCacheableLookupDao<T> delegate) {
         super(tenantId, delegate);

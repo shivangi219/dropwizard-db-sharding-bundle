@@ -56,6 +56,13 @@ public class LookupDao<T> implements ShardedDao<T> {
 
     private final MultiTenantLookupDao<T> delegate;
 
+    /**
+     * Constructs a LookupDao instance for querying and managing entities across multiple shards.
+     * <p>
+     * This constructor initializes a LookupDao instance for working with entities of the specified class
+     * distributed across multiple shards.
+     *
+     */
     public LookupDao(final String dbNamespace,
                      final MultiTenantLookupDao<T> delegate) {
         this.dbNamespace = dbNamespace;

@@ -67,8 +67,7 @@ public class WrapperDaoTest {
             sessionFactories.add(buildSessionFactory(String.format("db_%d", i)));
         }
         final ShardManager shardManager = new BalancedShardManager(sessionFactories.size());
-        dao = new WrapperDao<>(DBShardingBundleBase.DEFAULT_NAMESPACE, sessionFactories, OrderDao.class,
-                Map.of(DBShardingBundleBase.DEFAULT_NAMESPACE, shardManager));
+        dao = new WrapperDao<>(DBShardingBundleBase.DEFAULT_NAMESPACE, sessionFactories, OrderDao.class, shardManager);
 
     }
 

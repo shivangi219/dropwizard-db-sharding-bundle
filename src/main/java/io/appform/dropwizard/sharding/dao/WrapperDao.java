@@ -57,13 +57,13 @@ public class WrapperDao<T, DaoType extends AbstractDAO<T>> implements ShardedDao
      *
      * @param sessionFactories List of session factories. One for each shard.
      * @param daoClass         Class for the dao.
-     * @param shardManagers    A map of ShardManager to instantiate ShardCalculator.
+     * @param shardManager     ShardManager to instantiate ShardCalculator.
      */
     public WrapperDao(String dbNamespace,
                       List<SessionFactory> sessionFactories,
                       Class<DaoType> daoClass,
-                      Map<String, ShardManager> shardManagers) {
-        this(dbNamespace, sessionFactories, daoClass, null, null, shardManagers);
+                      ShardManager shardManager) {
+        this(dbNamespace, sessionFactories, daoClass, null, null, shardManager);
     }
 
     /**
@@ -73,16 +73,17 @@ public class WrapperDao<T, DaoType extends AbstractDAO<T>> implements ShardedDao
      * @param daoClass                     Class for the dao.
      * @param extraConstructorParamClasses Class names for constructor parameters to the DAO other than SessionFactory
      * @param extraConstructorParamObjects Objects for constructor parameters to the DAO other than SessionFactory
-     * @param shardManagers                A map of ShardManager to instantiateShardCalculator
+     * @param shardManager                 ShardManager to instantiateShardCalculator
      */
      public WrapperDao(
              String dbNamespace,
              List<SessionFactory> sessionFactories, Class<DaoType> daoClass,
              Class[] extraConstructorParamClasses,
              Class[] extraConstructorParamObjects,
-             Map<String, ShardManager> shardManagers) {
+             ShardManager shardManager) {
         this.dbNamespace = dbNamespace;
-        this.shardCalculator = new ShardCalculator<>(shardManagers, new ConsistentHashBucketIdExtractor<>(shardManagers));
+        this.shardCalculator = new ShardCalculator<>(Map.of(dbNamespace, shardManager),
+                new ConsistentHashBucketIdExtractor<>(Map.of(dbNamespace, shardManager)));
         this.daos = sessionFactories.stream().map((SessionFactory sessionFactory) -> {
             Enhancer enhancer = new Enhancer();
             enhancer.setUseFactory(false);

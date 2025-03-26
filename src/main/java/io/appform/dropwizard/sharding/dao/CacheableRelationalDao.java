@@ -31,6 +31,14 @@ public class CacheableRelationalDao<T> extends RelationalDao<T> {
 
     private final MultiTenantCacheableRelationalDao<T> delegate;
 
+    /**
+     * Constructs a CacheableRelationalDao instance for managing entities across multiple shards with caching support.
+     * <p>
+     * This constructor initializes a CacheableRelationalDao instance, which extends the functionality of a
+     * RelationalDao, for working with entities of the specified class distributed across multiple shards.
+     * The entity class should designate one field as the primary key using the `@Id` annotation.
+     *
+     */
     public CacheableRelationalDao(String dbNamespace,
                                   MultiTenantCacheableRelationalDao<T> delegate) {
         super(dbNamespace, delegate);
