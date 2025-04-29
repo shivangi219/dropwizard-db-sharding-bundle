@@ -139,7 +139,6 @@ public abstract class MultiTenantDBShardingBundleBase<T extends Configuration> e
         CompletableFuture.allOf(shardedBundle.stream()
                 .map(hibernateBundle -> CompletableFuture.runAsync(() -> {
                   try {
-                    log.info("Running hibernate bundle for tenant: {} ", tenantId);
                     hibernateBundle.run(configuration, environment);
                   } catch (Exception e) {
                     log.error("Error initializing db sharding bundle for tenant {}", tenantId, e);
@@ -176,8 +175,6 @@ public abstract class MultiTenantDBShardingBundleBase<T extends Configuration> e
     healthCheckManagers.values().forEach(healthCheckManager -> {
       bootstrap.getHealthCheckRegistry().addListener(healthCheckManager);
     });
-    shardBundles.values().forEach(
-        hibernateBundle -> bootstrap.addBundle((ConfiguredBundle) hibernateBundle));
   }
 
   @VisibleForTesting
