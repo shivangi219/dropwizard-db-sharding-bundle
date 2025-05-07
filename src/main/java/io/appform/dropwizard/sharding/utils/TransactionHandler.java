@@ -18,11 +18,7 @@
 package io.appform.dropwizard.sharding.utils;
 
 import lombok.Getter;
-import org.hibernate.CacheMode;
-import org.hibernate.FlushMode;
-import org.hibernate.Session;
-import org.hibernate.SessionFactory;
-import org.hibernate.Transaction;
+import org.hibernate.*;
 import org.hibernate.context.internal.ManagedSessionContext;
 import org.hibernate.resource.transaction.spi.TransactionStatus;
 import org.jboss.logging.MDC;
@@ -113,7 +109,7 @@ public class TransactionHandler {
         session.setHibernateFlushMode(FlushMode.AUTO);
         //If the bundle is initialized in multitenant mode, each session factory is tagged to
         //a tenant id. It will be used in encryption support to fetch the appropriate encryptor for the tenant.
-        if(sessionFactory.getProperties().containsKey(TENANT_ID)) {
+        if (sessionFactory.getProperties().containsKey(TENANT_ID)) {
             MDC.put(TENANT_ID, sessionFactory.getProperties().get(TENANT_ID).toString());
         }
     }

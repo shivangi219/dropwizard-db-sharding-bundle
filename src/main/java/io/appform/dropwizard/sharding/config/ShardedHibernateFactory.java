@@ -19,11 +19,7 @@ package io.appform.dropwizard.sharding.config;
 
 import com.google.common.collect.Lists;
 import io.dropwizard.db.DataSourceFactory;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-import lombok.Singular;
+import lombok.*;
 import org.hibernate.validator.constraints.NotEmpty;
 
 import javax.validation.Valid;

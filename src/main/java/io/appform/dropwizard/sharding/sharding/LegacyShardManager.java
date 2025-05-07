@@ -36,7 +36,7 @@ public class LegacyShardManager extends ShardManager {
     private static final int MAX_BUCKET = 999;
     private final int numShards;
 
-    private RangeMap<Integer, Integer> buckets = TreeRangeMap.create();
+    private final RangeMap<Integer, Integer> buckets = TreeRangeMap.create();
 
     public LegacyShardManager(int numShards) {
         this(numShards, new InMemoryLocalShardBlacklistingStore());

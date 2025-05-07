@@ -10,11 +10,7 @@ import org.hibernate.query.Query;
 import javax.persistence.criteria.CriteriaBuilder;
 import javax.persistence.criteria.CriteriaQuery;
 import javax.persistence.criteria.Root;
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
-import java.io.Serializable;
+import java.io.*;
 
 /**
  * Utilities for internal use
@@ -28,16 +24,16 @@ public class InternalUtils {
             os.writeObject(input);
             os.flush();
 
-            try(val ois = new ObjectInputStream(new ByteArrayInputStream(bos.toByteArray()))) {
+            try (val ois = new ObjectInputStream(new ByteArrayInputStream(bos.toByteArray()))) {
                 return (T) ois.readObject();
             }
         }
     }
 
-    public  <T> Query<T> createQuery(
-        final Session session,
-        final Class<T> entityClass,
-        final QuerySpec<T, T> querySpec) {
+    public <T> Query<T> createQuery(
+            final Session session,
+            final Class<T> entityClass,
+            final QuerySpec<T, T> querySpec) {
         CriteriaBuilder builder = session.getCriteriaBuilder();
         CriteriaQuery<T> criteria = builder.createQuery(entityClass);
         Root<T> root = criteria.from(entityClass);
