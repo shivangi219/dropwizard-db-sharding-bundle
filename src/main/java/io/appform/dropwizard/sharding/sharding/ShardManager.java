@@ -34,7 +34,7 @@ import java.util.concurrent.TimeUnit;
 public abstract class ShardManager {
 
     private final ShardBlacklistingStore shardBlacklistingStore;
-    private LoadingCache<Integer, Boolean> blackListedShards;
+    private final LoadingCache<Integer, Boolean> blackListedShards;
 
     abstract public int numBuckets();
 
@@ -63,10 +63,7 @@ public abstract class ShardManager {
     public boolean isMappedToValidShard(int bucketId) {
         final int shard = shardForBucketImpl(bucketId);
         final Boolean isBlacklisted = blackListedShards.get(shard);
-        if (null != isBlacklisted && isBlacklisted) {
-            return false;
-        }
-        return true;
+        return null == isBlacklisted || !isBlacklisted;
     }
 
     public void blacklistShard(int shardId) {

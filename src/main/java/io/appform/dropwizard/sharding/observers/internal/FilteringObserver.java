@@ -37,7 +37,7 @@ public final class FilteringObserver extends TransactionObserver {
 
     @Override
     @SuppressWarnings("java:S1181")
-    public final <T> T execute(TransactionExecutionContext context, Supplier<T> supplier) {
+    public <T> T execute(TransactionExecutionContext context, Supplier<T> supplier) {
         val blocks = filters.stream()
                 .map(filter -> {
                     try {

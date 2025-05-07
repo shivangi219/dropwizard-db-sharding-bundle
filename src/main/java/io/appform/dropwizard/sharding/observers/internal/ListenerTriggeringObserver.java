@@ -41,7 +41,7 @@ public final class ListenerTriggeringObserver extends TransactionObserver {
     }
 
     @Override
-    public final <T> T execute(TransactionExecutionContext context, Supplier<T> supplier) {
+    public <T> T execute(TransactionExecutionContext context, Supplier<T> supplier) {
         Objects.requireNonNull(context, "Context cannot be null");
         try {
             listeners.forEach(listener -> {

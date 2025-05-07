@@ -36,7 +36,7 @@ public class BalancedShardManager extends ShardManager {
     private static final int MAX_BUCKET = 1023;
     private final int numShards;
 
-    private RangeMap<Integer, Integer> buckets = TreeRangeMap.create();
+    private final RangeMap<Integer, Integer> buckets = TreeRangeMap.create();
 
     @Builder
     public BalancedShardManager(int numShards) {
