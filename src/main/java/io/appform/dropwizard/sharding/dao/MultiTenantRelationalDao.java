@@ -282,8 +282,8 @@ public class MultiTenantRelationalDao<T> implements ShardedDao<T> {
     /**
      * Constructs a RelationalDao instance for managing entities across multiple shards. This
      * constructor initializes a RelationalDao instance for working with entities of the specified
-     * class distributed across multiple shards. It requires a list of session factories, a shard
-     * calculator, a shard information provider, and a transaction observer. The entity class must
+     * class distributed across multiple shards. It requires a list of session factories, a map of
+     * shard managers, a shard information provider, and a transaction observer. The entity class must
      * designate one field as the primary key using the `@Id` annotation.
      *
      * @param sessionFactories   A list of SessionFactory instances for database access across

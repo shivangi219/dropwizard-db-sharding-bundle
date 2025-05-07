@@ -114,8 +114,8 @@ public class MultiTenantLookupDao<T> implements ShardedDao<T> {
      * Constructs a LookupDao instance for querying and managing entities across multiple shards.
      * <p>
      * This constructor initializes a LookupDao instance for working with entities of the specified
-     * class distributed across multiple shards. It requires a list of session factories, a shard
-     * calculator, sharding options, a shard information provider, and a transaction observer.
+     * class distributed across multiple shards. It requires a list of session factories, a map of shard
+     * managers, sharding options, a shard information provider, and a transaction observer.
      *
      * @param sessionFactories   A list of SessionFactory instances for database access across
      *                           shards.

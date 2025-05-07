@@ -43,7 +43,7 @@ public class MultiTenantCacheableRelationalDao<T> extends MultiTenantRelationalD
      * <p>
      * This constructor initializes a CacheableRelationalDao instance, which extends the functionality
      * of a RelationalDao, for working with entities of the specified class distributed across
-     * multiple shards. It requires a list of session factories, a shard calculator, a relational
+     * multiple shards. It requires a list of session factories, a map of shard managers, a relational
      * cache, a shard information provider, and a transaction observer. The entity class should
      * designate one field as the primary key using the `@Id` annotation.
      *
