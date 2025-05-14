@@ -5,8 +5,8 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>io.appform.dropwizard.sharding</groupId>
-    <artifactId>db-sharding-bundle</artifactId>
-    <version>2.1.10-8</version>
+    <artifactId>db-sharding-bundle-hibernate-parallel</artifactId>
+    <version>2.1-HIBERNATE-PARALLEL-SNAPHOT</version>
     <name>Dropwizard Database Sharding Bundle</name>
     <url>https://github.com/santanusinha/dropwizard-db-sharding-bundle</url>
     <description>Application layer database sharding over SQL dbs</description>
@@ -53,7 +53,7 @@
         <url>https://github.com/santanusinha/dropwizard-db-sharding-bundle/issues</url>
     </issueManagement>
 
-    <ciManagement>
+   <!-- <ciManagement>
         <system>Travis CI</system>
         <url>https://travis-ci.org/santanusinha/dropwizard-db-sharding-bundle</url>
     </ciManagement>
@@ -67,7 +67,69 @@
             <id>ossrh</id>
             <url>https://oss.sonatype.org/service/local/staging/deploy/maven2/</url>
         </repository>
+    </distributionManagement>-->
+
+    <repositories>
+        <repository>
+            <id>phonepe-releases</id>
+            <name>releases</name>
+            <url>https://artifactory.phonepe.com/repository/releases</url>
+        </repository>
+        <repository>
+            <id>phonepe-snapshots</id>
+            <name>snapshots</name>
+            <url>https://artifactory.phonepe.com/repository/snapshots</url>
+        </repository>
+        <repository>
+            <releases>
+                <enabled>true</enabled>
+                <updatePolicy>always</updatePolicy>
+                <checksumPolicy>warn</checksumPolicy>
+            </releases>
+            <snapshots>
+                <enabled>false</enabled>
+                <updatePolicy>never</updatePolicy>
+                <checksumPolicy>fail</checksumPolicy>
+            </snapshots>
+            <id>HDPReleases</id>
+            <name>HDP Releases</name>
+            <url>https://repo.hortonworks.com/content/repositories/releases/</url>
+            <layout>default</layout>
+        </repository>
+        <repository>
+            <releases>
+                <enabled>true</enabled>
+                <updatePolicy>always</updatePolicy>
+                <checksumPolicy>warn</checksumPolicy>
+            </releases>
+            <snapshots>
+                <enabled>true</enabled>
+                <updatePolicy>never</updatePolicy>
+                <checksumPolicy>fail</checksumPolicy>
+            </snapshots>
+            <id>HDPPublic</id>
+            <name>HDP Public</name>
+            <url>https://repo.hortonworks.com/content/repositories/public/</url>
+            <layout>default</layout>
+        </repository>
+        <repository>
+            <id>clojars.org</id>
+            <url>https://clojars.org/repo</url>
+        </repository>
+    </repositories>
+
+    <distributionManagement>
+        <repository>
+            <id>phonepe-releases</id>
+            <name>releases</name>
+            <url>https://artifactory.phonepe.com/repository/releases</url>
+        </repository>
+        <snapshotRepository>
+            <id>phonepe-snapshots</id>
+            <url>https://artifactory.phonepe.com/repository/snapshots</url>
+        </snapshotRepository>
     </distributionManagement>
+
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -78,6 +140,7 @@
         <guava-retrying.version>2.0.0</guava-retrying.version>
         <caffeine.version>2.9.3</caffeine.version>
         <jasypt-hibernate5.version>1.9.5</jasypt-hibernate5.version>
+        <hibernate-core.version>5.6.15.Final</hibernate-core.version>
         <junit.jupiter.version>5.7.2</junit.jupiter.version>
         <h2.version>1.4.196</h2.version>
         <mockito.version>4.3.1</mockito.version>
@@ -136,7 +199,12 @@
         </dependency>
         <dependency>
             <groupId>io.dropwizard</groupId>
-            <artifactId>dropwizard-hibernate</artifactId>
+            <artifactId>dropwizard-db</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.hibernate</groupId>
+            <artifactId>hibernate-core</artifactId>
+            <version>${hibernate-core.version}</version>
         </dependency>
         <dependency>
             <groupId>com.github.phaneesh</groupId>
@@ -318,12 +386,12 @@
             </plugin>
         </plugins>
     </build>
-    <repositories>
+<!--    <repositories>
         <repository>
             <id>clojars.org</id>
             <url>https://clojars.org/repo</url>
         </repository>
-    </repositories>
+    </repositories>-->
 
     <profiles>
         <profile>

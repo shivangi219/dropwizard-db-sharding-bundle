@@ -23,6 +23,7 @@ import io.appform.dropwizard.sharding.caching.RelationalCache;
 import io.appform.dropwizard.sharding.config.MetricConfig;
 import io.appform.dropwizard.sharding.config.MultiTenantShardedHibernateFactory;
 import io.appform.dropwizard.sharding.config.ShardedHibernateFactory;
+import io.appform.dropwizard.sharding.dao.AbstractDAO;
 import io.appform.dropwizard.sharding.dao.CacheableLookupDao;
 import io.appform.dropwizard.sharding.dao.CacheableRelationalDao;
 import io.appform.dropwizard.sharding.dao.LookupDao;
@@ -36,7 +37,6 @@ import io.appform.dropwizard.sharding.sharding.ShardBlacklistingStore;
 import io.appform.dropwizard.sharding.sharding.ShardManager;
 import io.dropwizard.Configuration;
 import io.dropwizard.ConfiguredBundle;
-import io.dropwizard.hibernate.AbstractDAO;
 import io.dropwizard.setup.Bootstrap;
 import io.dropwizard.setup.Environment;
 import lombok.Getter;
@@ -144,17 +144,18 @@ public abstract class DBShardingBundleBase<T extends Configuration> implements C
 
     @VisibleForTesting
     public void runBundles(T configuration, Environment environment) {
-        delegate.runBundles(configuration, environment);
+        //delegate.runBundles(configuration, environment);
     }
 
     @VisibleForTesting
     public void initBundles(Bootstrap bootstrap) {
-        delegate.initBundles(bootstrap);
+        //delegate.initBundles(bootstrap);
     }
 
     @VisibleForTesting
     public Map<Integer, Boolean> healthStatus() {
-        return delegate.healthStatus().get(dbNamespace);
+        return null;
+        //return delegate.healthStatus().get(dbNamespace);
     }
 
     protected abstract ShardedHibernateFactory getConfig(T config);

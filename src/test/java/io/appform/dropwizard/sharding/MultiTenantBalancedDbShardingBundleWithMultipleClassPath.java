@@ -96,8 +96,8 @@ public class MultiTenantBalancedDbShardingBundleWithMultipleClassPath extends Mu
         MultiTenantDBShardingBundleBase<TestConfig> bundle = getBundle();
 
         bundle.initialize(bootstrap);
-        bundle.initBundles(bootstrap);
-        bundle.runBundles(testConfig, environment);
+        //bundle.initBundles(bootstrap);
+        //bundle.runBundles(testConfig, environment);
         bundle.run(testConfig, environment);
         MultiTenantLookupDao<MultiPackageTestEntity> lookupDao = bundle.createParentObjectDao(MultiPackageTestEntity.class);
 
