@@ -107,11 +107,10 @@ public abstract class MultiTenantDBShardingBundleBase<T extends Configuration> e
       var shardingOption = shardConfig.getShardingOptions();
       shardingOption =
           Objects.nonNull(shardingOption) ? shardingOption : new ShardingBundleOptions();
-      List<SessionFactorySource> sessionFactorySources = IntStream.range(0, shardConfig.getShards().size())
+      List<SessionFactoryFactory<T>> sessionFactorySources = IntStream.range(0, shardConfig.getShards().size())
               .mapToObj(shard -> {
                 try {
-                  // Create an anonymous SessionFactoryFactory first
-                  SessionFactoryFactory<T> factory = new SessionFactoryFactory<T>(initialisedEntities) {
+                  return new SessionFactoryFactory<T>(initialisedEntities) {
                     @Override
                     protected String name() {
                       return shardInfoProvider.shardName(shard);
@@ -122,17 +121,18 @@ public abstract class MultiTenantDBShardingBundleBase<T extends Configuration> e
                       return shardConfig.getShards().get(shard);
                     }
                   };
-                  return factory.build(configuration, environment);
                 } catch (Exception e) {
                   log.error("Error building session factory for shard {}", shard, e);
                   throw new RuntimeException("Failed to build session factory for shard " + shard, e);
                 }
               })
               .collect(Collectors.toList());
-      SessionFactoryManager sessionFactoryManager = new SessionFactoryManager(sessionFactorySources);
+      SessionFactoryManager<T> sessionFactoryManager = new SessionFactoryManager<T>(configuration, environment, sessionFactorySources);
       environment.lifecycle().manage(sessionFactoryManager);
-      val sessionFactory = sessionFactorySources.stream().map(SessionFactorySource::getFactory)
-          .collect(Collectors.toList());
+      val sessionFactory = sessionFactoryManager.getSessionFactorySources()
+              .stream()
+              .map(SessionFactorySource::getFactory)
+              .collect(Collectors.toList());
       sessionFactory.forEach(factory -> factory.getProperties().put("tenant.id", tenantId));
       if (shardingOption.isEncryptionSupportEnabled()) {
         Preconditions.checkArgument(shardingOption.getEncryptionIv().length() == 16,
