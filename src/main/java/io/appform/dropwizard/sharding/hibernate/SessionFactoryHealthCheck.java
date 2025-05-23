@@ -2,7 +2,6 @@ package io.appform.dropwizard.sharding.hibernate;
 
 import com.codahale.metrics.health.HealthCheck;
 import io.dropwizard.db.TimeBoundHealthCheck;
-import io.dropwizard.util.DirectExecutorService;
 import io.dropwizard.util.Duration;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
@@ -17,11 +16,6 @@ public class SessionFactoryHealthCheck extends HealthCheck {
     private final Optional<String> validationQuery;
     private final int validationQueryTimeout;
     private final TimeBoundHealthCheck timeBoundHealthCheck;
-
-    public SessionFactoryHealthCheck(SessionFactory sessionFactory,
-                                     Optional<String> validationQuery) {
-        this(new DirectExecutorService(), Duration.seconds(0), sessionFactory, validationQuery);
-    }
 
     public SessionFactoryHealthCheck(ExecutorService executorService,
                                      Duration duration,

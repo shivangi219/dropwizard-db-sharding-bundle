@@ -52,6 +52,9 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -93,62 +96,71 @@ public abstract class MultiTenantDBShardingBundleBase<T extends Configuration> e
 
   @Override
   public void run(T configuration, Environment environment) {
-    val tenantedConfig = getConfig(configuration);
-    tenantedConfig.getTenants().forEach((tenantId, shardConfig) -> {
-      var blacklistingStore = getBlacklistingStore();
-      var shardManager = createShardManager(shardConfig.getShards().size(), blacklistingStore);
-      this.shardManagers.put(tenantId, shardManager);
-      val shardInfoProvider = new ShardInfoProvider(tenantId);
-      shardInfoProviders.put(tenantId, shardInfoProvider);
-      var healthCheckManager = new HealthCheckManager(tenantId, shardInfoProvider,
-          blacklistingStore,
-          shardManager);
-      //Encryption Support through jasypt-hibernate5
-      var shardingOption = shardConfig.getShardingOptions();
-      shardingOption =
-          Objects.nonNull(shardingOption) ? shardingOption : new ShardingBundleOptions();
-      List<SessionFactoryFactory<T>> sessionFactorySources = IntStream.range(0, shardConfig.getShards().size())
-              .mapToObj(shard -> {
-                try {
-                  return new SessionFactoryFactory<T>(initialisedEntities) {
-                    @Override
-                    protected String name() {
-                      return shardInfoProvider.shardName(shard);
-                    }
+    ExecutorService executorService = Executors.newCachedThreadPool();
+    try {
+      val tenantedConfig = getConfig(configuration);
+      tenantedConfig.getTenants().forEach((tenantId, shardConfig) -> {
+        var blacklistingStore = getBlacklistingStore();
+        var shardManager = createShardManager(shardConfig.getShards().size(), blacklistingStore);
+        this.shardManagers.put(tenantId, shardManager);
+        val shardInfoProvider = new ShardInfoProvider(tenantId);
+        shardInfoProviders.put(tenantId, shardInfoProvider);
+        var healthCheckManager = new HealthCheckManager(tenantId, shardInfoProvider,
+                blacklistingStore,
+                shardManager);
+        //Encryption Support through jasypt-hibernate5
+        var shardingOption = shardConfig.getShardingOptions();
+        shardingOption =
+                Objects.nonNull(shardingOption) ? shardingOption : new ShardingBundleOptions();
+        List<CompletableFuture<SessionFactorySource>> futures = IntStream.range(0, shardConfig.getShards().size())
+                .mapToObj(i -> CompletableFuture.supplyAsync(() -> {
+                  try {
+                    SessionFactoryFactory<T> factory = new SessionFactoryFactory<T>(initialisedEntities) {
+                      @Override
+                      protected String name() {
+                        return shardInfoProvider.shardName(i);
+                      }
 
-                    @Override
-                    public PooledDataSourceFactory getDataSourceFactory(T t) {
-                      return shardConfig.getShards().get(shard);
-                    }
-                  };
-                } catch (Exception e) {
-                  log.error("Error building session factory for shard {}", shard, e);
-                  throw new RuntimeException("Failed to build session factory for shard " + shard, e);
-                }
-              })
-              .collect(Collectors.toList());
-      SessionFactoryManager<T> sessionFactoryManager = new SessionFactoryManager<T>(configuration, environment, sessionFactorySources);
-      environment.lifecycle().manage(sessionFactoryManager);
-      val sessionFactory = sessionFactoryManager.getSessionFactorySources()
-              .stream()
-              .map(SessionFactorySource::getFactory)
-              .collect(Collectors.toList());
-      sessionFactory.forEach(factory -> factory.getProperties().put("tenant.id", tenantId));
-      if (shardingOption.isEncryptionSupportEnabled()) {
-        Preconditions.checkArgument(shardingOption.getEncryptionIv().length() == 16,
-            "Encryption IV Should be 16 bytes long");
-        registerStringEncryptor(tenantId, shardingOption);
-        registerBigIntegerEncryptor(tenantId, shardingOption);
-        registerBigDecimalEncryptor(tenantId, shardingOption);
-        registerByteEncryptor(tenantId, shardingOption);
-      }
-      this.sessionFactories.put(tenantId, sessionFactory);
-      this.shardingOptions.put(tenantId, shardingOption);
-      healthCheckManager.manageHealthChecks(shardConfig.getBlacklist(), environment);
-      setupObservers(shardConfig.getMetricConfig(), environment.metrics());
-      environment.admin().addTask(new BlacklistShardTask(tenantId, shardManager));
-      environment.admin().addTask(new UnblacklistShardTask(tenantId, shardManager));
-    });
+                      @Override
+                      public PooledDataSourceFactory getDataSourceFactory(T t) {
+                        return shardConfig.getShards().get(i);
+                      }
+                    };
+                    return factory.build(configuration, environment);
+                  } catch (Exception e) {
+                    log.error("Failed to build session factory for shard {}", i, e);
+                    throw new RuntimeException("Shard " + i + " build failed", e);
+                  }
+                }, executorService))
+                .collect(Collectors.toList());
+        List<SessionFactorySource> sessionFactorySources = futures.stream()
+                .map(CompletableFuture::join)
+                .collect(Collectors.toList());
+        SessionFactoryManager<T> sessionFactoryManager = new SessionFactoryManager<T>(sessionFactorySources);
+        environment.lifecycle().manage(sessionFactoryManager);
+        val sessionFactory = sessionFactorySources
+                .stream()
+                .map(SessionFactorySource::getFactory)
+                .collect(Collectors.toList());
+        sessionFactory.forEach(factory -> factory.getProperties().put("tenant.id", tenantId));
+        if (shardingOption.isEncryptionSupportEnabled()) {
+          Preconditions.checkArgument(shardingOption.getEncryptionIv().length() == 16,
+                  "Encryption IV Should be 16 bytes long");
+          registerStringEncryptor(tenantId, shardingOption);
+          registerBigIntegerEncryptor(tenantId, shardingOption);
+          registerBigDecimalEncryptor(tenantId, shardingOption);
+          registerByteEncryptor(tenantId, shardingOption);
+        }
+        this.sessionFactories.put(tenantId, sessionFactory);
+        this.shardingOptions.put(tenantId, shardingOption);
+        healthCheckManager.manageHealthChecks(shardConfig.getBlacklist(), environment);
+        setupObservers(shardConfig.getMetricConfig(), environment.metrics());
+        environment.admin().addTask(new BlacklistShardTask(tenantId, shardManager));
+        environment.admin().addTask(new UnblacklistShardTask(tenantId, shardManager));
+      });
+    } finally {
+      executorService.shutdown();
+    }
   }
 
   @Override
