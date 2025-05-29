@@ -113,23 +113,23 @@ public abstract class MultiTenantDBShardingBundleBase<T extends Configuration> e
         shardingOption =
                 Objects.nonNull(shardingOption) ? shardingOption : new ShardingBundleOptions();
         List<CompletableFuture<SessionFactorySource>> futures = IntStream.range(0, shardConfig.getShards().size())
-                .mapToObj(i -> CompletableFuture.supplyAsync(() -> {
+                .mapToObj(shard -> CompletableFuture.supplyAsync(() -> {
                   try {
                     SessionFactoryFactory<T> factory = new SessionFactoryFactory<T>(initialisedEntities) {
                       @Override
                       protected String name() {
-                        return shardInfoProvider.shardName(i);
+                        return shardInfoProvider.shardName(shard);
                       }
 
                       @Override
                       public PooledDataSourceFactory getDataSourceFactory(T t) {
-                        return shardConfig.getShards().get(i);
+                        return shardConfig.getShards().get(shard);
                       }
                     };
                     return factory.build(configuration, environment);
                   } catch (Exception e) {
-                    log.error("Failed to build session factory for shard {}", i, e);
-                    throw new RuntimeException("Shard " + i + " build failed", e);
+                    log.error("Failed to build session factory for shard {}", shard, e);
+                    throw new RuntimeException("Shard " + shard + " build failed", e);
                   }
                 }, executorService))
                 .collect(Collectors.toList());
