@@ -143,19 +143,8 @@ public abstract class DBShardingBundleBase<T extends Configuration> implements C
     }
 
     @VisibleForTesting
-    public void runBundles(T configuration, Environment environment) {
-        //delegate.runBundles(configuration, environment);
-    }
-
-    @VisibleForTesting
-    public void initBundles(Bootstrap bootstrap) {
-        //delegate.initBundles(bootstrap);
-    }
-
-    @VisibleForTesting
-    public Map<Integer, Boolean> healthStatus() {
-        return null;
-        //return delegate.healthStatus().get(dbNamespace);
+    protected Map<Integer, Boolean> healthStatus() {
+        return delegate.healthStatus().get(dbNamespace);
     }
 
     protected abstract ShardedHibernateFactory getConfig(T config);

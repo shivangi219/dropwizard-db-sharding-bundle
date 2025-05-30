@@ -49,8 +49,6 @@ public abstract class DBShardingBundleTestBase extends BundleBasedTestBase {
     public void testBundle() throws Exception {
         DBShardingBundleBase<TestConfig> bundle = getBundle();
         bundle.initialize(bootstrap);
-        bundle.initBundles(bootstrap);
-        bundle.runBundles(testConfig, environment);
         bundle.run(testConfig, environment);
         bundle.registerObserver(new TimerObserver());
         bundle.registerListener(new LoggingListener());
@@ -151,14 +149,12 @@ public abstract class DBShardingBundleTestBase extends BundleBasedTestBase {
     public void testBundleWithShardBlacklisted() throws Exception {
         DBShardingBundleBase<TestConfig> bundle = getBundle();
         bundle.initialize(bootstrap);
-        bundle.initBundles(bootstrap);
-        bundle.runBundles(testConfig, environment);
         bundle.run(testConfig, environment);
         bundle.getShardManager().blacklistShard(1);
 
-       /* assertTrue(bundle.healthStatus()
+        assertTrue(bundle.healthStatus()
                 .values()
                 .stream()
-                .allMatch(status -> status));*/
+                .allMatch(status -> status));
     }
 }

@@ -77,6 +77,8 @@ public abstract class MultiTenantDBShardingBundleBase<T extends Configuration> e
 
   private Map<String, ShardInfoProvider> shardInfoProviders = Maps.newHashMap();
 
+  private Map<String, HealthCheckManager> healthCheckManagers = Maps.newHashMap();
+
   protected MultiTenantDBShardingBundleBase(
       Class<?> entity,
       Class<?>... entities) {
@@ -108,6 +110,7 @@ public abstract class MultiTenantDBShardingBundleBase<T extends Configuration> e
         var healthCheckManager = new HealthCheckManager(tenantId, shardInfoProvider,
                 blacklistingStore,
                 shardManager);
+        healthCheckManagers.put(tenantId, healthCheckManager);
         //Encryption Support through jasypt-hibernate5
         var shardingOption = shardConfig.getShardingOptions();
         shardingOption =
@@ -166,34 +169,16 @@ public abstract class MultiTenantDBShardingBundleBase<T extends Configuration> e
   @Override
   @SuppressWarnings("unchecked")
   public void initialize(Bootstrap<?> bootstrap) {
-    //no-op
-  }
-
-  /*@VisibleForTesting
-  public void runBundles(T configuration, Environment environment) {
-    shardBundles.forEach((tenantId, hibernateBundles) -> {
-      log.info("Running hibernate bundles for tenant: {}", tenantId);
-      hibernateBundles.forEach(hibernateBundle -> {
-        try {
-          hibernateBundle.run(configuration, environment);
-        } catch (Exception e) {
-          log.error("Error initializing db sharding bundle for tenant {}", tenantId, e);
-          throw new RuntimeException(e);
-        }
-      });
+    healthCheckManagers.values().forEach(healthCheckManager -> {
+      bootstrap.getHealthCheckRegistry().addListener(healthCheckManager);
     });
   }
 
   @VisibleForTesting
-  public void initBundles(Bootstrap bootstrap) {
-    initialize(bootstrap);
-  }
-
-  @VisibleForTesting
-  public Map<String, Map<Integer, Boolean>> healthStatus() {
+  protected Map<String, Map<Integer, Boolean>> healthStatus() {
     return healthCheckManagers.entrySet().stream()
         .collect(Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue().status()));
-  }*/
+  }
 
   protected abstract MultiTenantShardedHibernateFactory getConfig(T config);
 

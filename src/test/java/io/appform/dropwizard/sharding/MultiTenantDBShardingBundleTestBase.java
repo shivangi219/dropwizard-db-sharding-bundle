@@ -48,8 +48,6 @@ public abstract class MultiTenantDBShardingBundleTestBase extends MultiTenantBun
     public void testBundle() throws Exception {
         MultiTenantDBShardingBundleBase<TestConfig> bundle = getBundle();
         bundle.initialize(bootstrap);
-        //bundle.initBundles(bootstrap);
-        //bundle.runBundles(testConfig, environment);
         bundle.run(testConfig, environment);
         bundle.registerObserver(new TimerObserver());
         bundle.registerListener(new LoggingListener());
@@ -127,13 +125,11 @@ public abstract class MultiTenantDBShardingBundleTestBase extends MultiTenantBun
     public void testBundleWithShardBlacklisted() throws Exception {
         MultiTenantDBShardingBundleBase<TestConfig> bundle = getBundle();
         bundle.initialize(bootstrap);
-        //bundle.initBundles(bootstrap);
-        //bundle.runBundles(testConfig, environment);
         bundle.run(testConfig, environment);
         bundle.getShardManagers().get("TENANT1").blacklistShard(1);
-       /* assertTrue(bundle.healthStatus()
+        assertTrue(bundle.healthStatus()
                 .values()
                 .stream()
-                .allMatch(status -> status.values().stream().reduce(true, (a,b) -> a && b)));*/
+                .allMatch(status -> status.values().stream().reduce(true, (a,b) -> a && b)));
     }
 }

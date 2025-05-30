@@ -71,8 +71,6 @@ public class BalancedDbShardingBundleWithMultipleClassPath extends DBShardingBun
         DBShardingBundleBase<TestConfig> bundle = getBundle();
 
         bundle.initialize(bootstrap);
-        bundle.initBundles(bootstrap);
-        bundle.runBundles(testConfig, environment);
         bundle.run(testConfig, environment);
         LookupDao<MultiPackageTestEntity> lookupDao = bundle.createParentObjectDao(MultiPackageTestEntity.class);
 
