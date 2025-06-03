@@ -53,8 +53,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -136,9 +139,8 @@ public abstract class MultiTenantDBShardingBundleBase<T extends Configuration> e
                   }
                 }, executorService))
                 .collect(Collectors.toList());
-        List<SessionFactorySource> sessionFactorySources = futures.stream()
-                .map(CompletableFuture::join)
-                .collect(Collectors.toList());
+        List<SessionFactorySource> sessionFactorySources = getSessionFactorySources(tenantId, futures,
+                shardConfig.getShardInitializationTimeoutInSec());
         SessionFactoryManager<T> sessionFactoryManager = new SessionFactoryManager<T>(sessionFactorySources);
         environment.lifecycle().manage(sessionFactoryManager);
         val sessionFactory = sessionFactorySources
@@ -163,6 +165,14 @@ public abstract class MultiTenantDBShardingBundleBase<T extends Configuration> e
       });
     } finally {
       executorService.shutdown();
+      try {
+        if (!executorService.awaitTermination(5, TimeUnit.SECONDS)) {
+          executorService.shutdownNow();
+        }
+      } catch (InterruptedException ie) {
+        executorService.shutdownNow();
+        Thread.currentThread().interrupt();
+      }
     }
   }
 
@@ -246,5 +256,30 @@ public abstract class MultiTenantDBShardingBundleBase<T extends Configuration> e
             "Unknown tenant: " + tenantId);
     return new WrapperDao<>(tenantId, this.sessionFactories.get(tenantId), daoTypeClass,
         extraConstructorParamClasses, extraConstructorParamObjects, this.shardManagers.get(tenantId));
+  }
+
+  private static List<SessionFactorySource> getSessionFactorySources(final String tenantId,
+                                                                     final List<CompletableFuture<SessionFactorySource>> futures,
+                                                                     final long timeoutInSeconds) {
+    List<SessionFactorySource> sessionFactorySources;
+    try {
+      sessionFactorySources = CompletableFuture
+              .allOf(futures.toArray(new CompletableFuture[0]))
+              .thenApply(ignored ->
+                      futures.stream()
+                              .map(CompletableFuture::join)
+                              .collect(Collectors.toList())
+              )
+              .get(timeoutInSeconds, TimeUnit.SECONDS);
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      throw new RuntimeException("Initialization interrupted for tenant " + tenantId, e);
+    } catch (ExecutionException e) {
+      throw new RuntimeException("One or more session factories failed for tenant " + tenantId, e.getCause());
+    } catch (TimeoutException e) {
+      futures.forEach(f -> f.cancel(true));
+      throw new RuntimeException("Timed out waiting " + timeoutInSeconds + "s for tenant " + tenantId, e);
+    }
+    return sessionFactorySources;
   }
 }
