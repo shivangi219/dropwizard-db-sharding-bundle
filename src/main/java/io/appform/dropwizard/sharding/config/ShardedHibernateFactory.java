@@ -50,7 +50,7 @@ public class ShardedHibernateFactory {
     private List<DataSourceFactory> shards = Lists.newArrayList();
 
     @Builder.Default
-    private long shardInitializationTimeoutInSec = 60;
+    private long shardsInitializationTimeoutInSec = 60;
 
     @Valid
     private BlacklistConfig blacklist;

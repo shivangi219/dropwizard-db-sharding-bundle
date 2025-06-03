@@ -22,6 +22,8 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.Maps;
 import io.appform.dropwizard.sharding.admin.BlacklistShardTask;
 import io.appform.dropwizard.sharding.admin.UnblacklistShardTask;
+import com.fasterxml.jackson.datatype.hibernate5.Hibernate5Module;
+import com.fasterxml.jackson.datatype.hibernate5.Hibernate5Module.Feature;
 import io.appform.dropwizard.sharding.caching.LookupCache;
 import io.appform.dropwizard.sharding.caching.RelationalCache;
 import io.appform.dropwizard.sharding.config.MetricConfig;
@@ -140,7 +142,7 @@ public abstract class MultiTenantDBShardingBundleBase<T extends Configuration> e
                 }, executorService))
                 .collect(Collectors.toList());
         List<SessionFactorySource> sessionFactorySources = getSessionFactorySources(tenantId, futures,
-                shardConfig.getShardInitializationTimeoutInSec());
+                shardConfig.getShardsInitializationTimeoutInSec());
         SessionFactoryManager<T> sessionFactoryManager = new SessionFactoryManager<T>(sessionFactorySources);
         environment.lifecycle().manage(sessionFactoryManager);
         val sessionFactory = sessionFactorySources
@@ -179,6 +181,7 @@ public abstract class MultiTenantDBShardingBundleBase<T extends Configuration> e
   @Override
   @SuppressWarnings("unchecked")
   public void initialize(Bootstrap<?> bootstrap) {
+    bootstrap.getObjectMapper().registerModule(createHibernate5Module());
     healthCheckManagers.values().forEach(healthCheckManager -> {
       bootstrap.getHealthCheckRegistry().addListener(healthCheckManager);
     });
@@ -258,7 +261,13 @@ public abstract class MultiTenantDBShardingBundleBase<T extends Configuration> e
         extraConstructorParamClasses, extraConstructorParamObjects, this.shardManagers.get(tenantId));
   }
 
-  private static List<SessionFactorySource> getSessionFactorySources(final String tenantId,
+  protected Hibernate5Module createHibernate5Module() {
+    Hibernate5Module module = new Hibernate5Module();
+    module.enable(Feature.FORCE_LAZY_LOADING);
+    return module;
+  }
+
+  private List<SessionFactorySource> getSessionFactorySources(final String tenantId,
                                                                      final List<CompletableFuture<SessionFactorySource>> futures,
                                                                      final long timeoutInSeconds) {
     List<SessionFactorySource> sessionFactorySources;
