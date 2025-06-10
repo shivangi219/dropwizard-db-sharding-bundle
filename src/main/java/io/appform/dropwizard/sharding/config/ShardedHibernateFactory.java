@@ -49,9 +49,6 @@ public class ShardedHibernateFactory {
     @Singular
     private List<DataSourceFactory> shards = Lists.newArrayList();
 
-    @Builder.Default
-    private long shardsInitializationTimeoutInSec = 60;
-
     @Valid
     private ShardingBundleOptions shardingOptions;
 
