@@ -1,5 +1,7 @@
 package io.appform.dropwizard.sharding.hibernate;
 
+import io.appform.dropwizard.sharding.healthcheck.HealthCheckManager;
+import io.appform.dropwizard.sharding.sharding.ShardBlacklistingStore;
 import io.dropwizard.db.DatabaseConfiguration;
 import io.dropwizard.db.ManagedDataSource;
 import io.dropwizard.db.PooledDataSourceFactory;
@@ -28,11 +30,17 @@ import static java.util.Objects.requireNonNull;
 public abstract class SessionFactoryFactory<T> implements DatabaseConfiguration<T> {
 
     public static final String DEFAULT_NAME = "hibernate";
-    protected SessionFactory sessionFactory;
-    protected final List<Class<?>> entities;
 
-    protected SessionFactoryFactory(List<Class<?>> entities) {
+    private final List<Class<?>> entities;
+    private final HealthCheckManager healthCheckManager;
+
+    private SessionFactory sessionFactory;
+
+
+    protected SessionFactoryFactory(final List<Class<?>> entities,
+                                    final HealthCheckManager healthCheckManager) {
         this.entities = entities;
+        this.healthCheckManager = healthCheckManager;
     }
 
     protected String name() {
@@ -43,35 +51,34 @@ public abstract class SessionFactoryFactory<T> implements DatabaseConfiguration<
         final PooledDataSourceFactory dbConfig = getDataSourceFactory(configuration);
         final ManagedDataSource dataSource = dbConfig.build(environment.metrics(), name());
         final ConnectionProvider provider = buildConnectionProvider(dataSource, dbConfig.getProperties());
-        final SessionFactory factory = buildSessionFactory(
+        this.sessionFactory = buildSessionFactory(
                 dbConfig,
                 provider,
                 dbConfig.getProperties(),
                 entities);
-        environment.healthChecks().register(name(),
-                new SessionFactoryHealthCheck(
-                        environment.getHealthCheckExecutorService(),
-                        dbConfig.getValidationQueryTimeout().orElse(Duration.seconds(5)),
-                        sessionFactory,
-                        dbConfig.getValidationQuery()));
+        healthCheckManager.register(name(), new SessionFactoryHealthCheck(
+                environment.getHealthCheckExecutorService(),
+                dbConfig.getValidationQueryTimeout().orElse(Duration.seconds(5)),
+                sessionFactory,
+                dbConfig.getValidationQuery()));
         return SessionFactorySource.builder()
                 .dataSource(dataSource)
-                .factory(factory)
+                .factory(sessionFactory)
                 .build();
     }
 
-    private ConnectionProvider buildConnectionProvider(DataSource dataSource,
-                                                       Map<String, String> properties) {
+    private ConnectionProvider buildConnectionProvider(final DataSource dataSource,
+                                                       final Map<String, String> properties) {
         final DatasourceConnectionProviderImpl connectionProvider = new DatasourceConnectionProviderImpl();
         connectionProvider.setDataSource(dataSource);
         connectionProvider.configure(properties);
         return connectionProvider;
     }
 
-    private SessionFactory buildSessionFactory(PooledDataSourceFactory dbConfig,
-                                               ConnectionProvider connectionProvider,
-                                               Map<String, String> properties,
-                                               List<Class<?>> entities) {
+    private SessionFactory buildSessionFactory(final PooledDataSourceFactory dbConfig,
+                                               final ConnectionProvider connectionProvider,
+                                               final Map<String, String> properties,
+                                               final List<Class<?>> entities) {
 
         final BootstrapServiceRegistry bootstrapServiceRegistry = new BootstrapServiceRegistryBuilder().build();
         final Configuration configuration = new Configuration(bootstrapServiceRegistry);
@@ -99,8 +106,8 @@ public abstract class SessionFactoryFactory<T> implements DatabaseConfiguration<
         return requireNonNull(sessionFactory);
     }
 
-    private void addAnnotatedClasses(Configuration configuration,
-                                     Iterable<Class<?>> entities) {
+    private void addAnnotatedClasses(final Configuration configuration,
+                                     final Iterable<Class<?>> entities) {
         final SortedSet<String> entityClasses = new TreeSet<>();
         for (Class<?> klass : entities) {
             configuration.addAnnotatedClass(klass);

@@ -105,25 +105,24 @@ public abstract class MultiTenantDBShardingBundleBase<T extends Configuration> e
   public void run(T configuration, Environment environment) {
     ExecutorService executorService = Executors.newCachedThreadPool();
     try {
-      val tenantedConfig = getConfig(configuration);
+      final var tenantedConfig = getConfig(configuration);
       tenantedConfig.getTenants().forEach((tenantId, shardConfig) -> {
-        var blacklistingStore = getBlacklistingStore();
-        var shardManager = createShardManager(shardConfig.getShards().size(), blacklistingStore);
+        final var blacklistingStore = getBlacklistingStore();
+        final var shardManager = createShardManager(shardConfig.getShards().size(), blacklistingStore);
         this.shardManagers.put(tenantId, shardManager);
-        val shardInfoProvider = new ShardInfoProvider(tenantId);
-        shardInfoProviders.put(tenantId, shardInfoProvider);
-        var healthCheckManager = new HealthCheckManager(tenantId, shardInfoProvider,
-                blacklistingStore,
-                shardManager);
-        healthCheckManagers.put(tenantId, healthCheckManager);
+        final var shardInfoProvider = new ShardInfoProvider(tenantId);
+        this.shardInfoProviders.put(tenantId, shardInfoProvider);
         //Encryption Support through jasypt-hibernate5
         var shardingOption = shardConfig.getShardingOptions();
         shardingOption =
                 Objects.nonNull(shardingOption) ? shardingOption : new ShardingBundleOptions();
-        List<CompletableFuture<SessionFactorySource>> futures = IntStream.range(0, shardConfig.getShards().size())
+        final var healthCheckManager = new HealthCheckManager(tenantId, environment, shardInfoProvider,
+                blacklistingStore, shardingOption);
+        healthCheckManagers.put(tenantId, healthCheckManager);
+        final List<CompletableFuture<SessionFactorySource>> futures = IntStream.range(0, shardConfig.getShards().size())
                 .mapToObj(shard -> CompletableFuture.supplyAsync(() -> {
                   try {
-                    SessionFactoryFactory<T> factory = new SessionFactoryFactory<T>(initialisedEntities) {
+                    SessionFactoryFactory<T> factory = new SessionFactoryFactory<T>(initialisedEntities, healthCheckManager) {
                       @Override
                       protected String name() {
                         return shardInfoProvider.shardName(shard);
@@ -141,9 +140,9 @@ public abstract class MultiTenantDBShardingBundleBase<T extends Configuration> e
                   }
                 }, executorService))
                 .collect(Collectors.toList());
-        List<SessionFactorySource> sessionFactorySources = getSessionFactorySources(tenantId, futures,
+        final var sessionFactorySources = getSessionFactorySources(tenantId, futures,
                 shardConfig.getShardsInitializationTimeoutInSec());
-        SessionFactoryManager<T> sessionFactoryManager = new SessionFactoryManager<T>(sessionFactorySources);
+        final var sessionFactoryManager = new SessionFactoryManager(sessionFactorySources);
         environment.lifecycle().manage(sessionFactoryManager);
         val sessionFactory = sessionFactorySources
                 .stream()
@@ -160,7 +159,6 @@ public abstract class MultiTenantDBShardingBundleBase<T extends Configuration> e
         }
         this.sessionFactories.put(tenantId, sessionFactory);
         this.shardingOptions.put(tenantId, shardingOption);
-        healthCheckManager.manageHealthChecks(shardConfig.getBlacklist(), environment);
         setupObservers(shardConfig.getMetricConfig(), environment.metrics());
         environment.admin().addTask(new BlacklistShardTask(tenantId, shardManager));
         environment.admin().addTask(new UnblacklistShardTask(tenantId, shardManager));
@@ -181,10 +179,7 @@ public abstract class MultiTenantDBShardingBundleBase<T extends Configuration> e
   @Override
   @SuppressWarnings("unchecked")
   public void initialize(Bootstrap<?> bootstrap) {
-    bootstrap.getObjectMapper().registerModule(createHibernate5Module());
-    healthCheckManagers.values().forEach(healthCheckManager -> {
-      bootstrap.getHealthCheckRegistry().addListener(healthCheckManager);
-    });
+    bootstrap.getObjectMapper().registerModule(new Hibernate5Module().enable(Feature.FORCE_LAZY_LOADING));
   }
 
   @VisibleForTesting
@@ -261,15 +256,9 @@ public abstract class MultiTenantDBShardingBundleBase<T extends Configuration> e
         extraConstructorParamClasses, extraConstructorParamObjects, this.shardManagers.get(tenantId));
   }
 
-  protected Hibernate5Module createHibernate5Module() {
-    Hibernate5Module module = new Hibernate5Module();
-    module.enable(Feature.FORCE_LAZY_LOADING);
-    return module;
-  }
-
   private List<SessionFactorySource> getSessionFactorySources(final String tenantId,
-                                                                     final List<CompletableFuture<SessionFactorySource>> futures,
-                                                                     final long timeoutInSeconds) {
+                                                              final List<CompletableFuture<SessionFactorySource>> futures,
+                                                              final long timeoutInSeconds) {
     List<SessionFactorySource> sessionFactorySources;
     try {
       sessionFactorySources = CompletableFuture

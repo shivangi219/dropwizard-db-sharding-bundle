@@ -8,7 +8,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Slf4j
-public class SessionFactoryManager<T extends Configuration> implements Managed {
+public class SessionFactoryManager implements Managed {
+
     private final List<SessionFactorySource> sessionFactorySources = new ArrayList<>();
 
     public SessionFactoryManager(List<SessionFactorySource> sources) {

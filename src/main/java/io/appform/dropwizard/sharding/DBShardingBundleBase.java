@@ -32,7 +32,7 @@ import io.appform.dropwizard.sharding.dao.WrapperDao;
 import io.appform.dropwizard.sharding.filters.TransactionFilter;
 import io.appform.dropwizard.sharding.listeners.TransactionListener;
 import io.appform.dropwizard.sharding.observers.TransactionObserver;
-import io.appform.dropwizard.sharding.sharding.InMemoryLocalShardBlacklistingStore;
+import io.appform.dropwizard.sharding.sharding.NoopShardBlacklistingStore;
 import io.appform.dropwizard.sharding.sharding.ShardBlacklistingStore;
 import io.appform.dropwizard.sharding.sharding.ShardManager;
 import io.dropwizard.Configuration;
@@ -118,7 +118,7 @@ public abstract class DBShardingBundleBase<T extends Configuration> implements C
     }
 
     protected ShardBlacklistingStore getBlacklistingStore() {
-        return new InMemoryLocalShardBlacklistingStore();
+        return new NoopShardBlacklistingStore();
     }
 
     public List<SessionFactory> getSessionFactories() {

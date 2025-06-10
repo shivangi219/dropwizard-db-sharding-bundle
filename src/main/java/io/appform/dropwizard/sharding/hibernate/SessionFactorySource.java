@@ -2,11 +2,11 @@ package io.appform.dropwizard.sharding.hibernate;
 
 import io.dropwizard.db.ManagedDataSource;
 import lombok.Builder;
-import lombok.Data;
+import lombok.Getter;
 import org.hibernate.SessionFactory;
 
 @Builder
-@Data
+@Getter
 public class SessionFactorySource {
     private final SessionFactory factory;
     private final ManagedDataSource dataSource;

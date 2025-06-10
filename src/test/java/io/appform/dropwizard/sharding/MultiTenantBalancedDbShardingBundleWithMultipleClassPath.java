@@ -23,6 +23,8 @@ import io.appform.dropwizard.sharding.dao.MultiTenantCacheableLookupDao;
 import io.appform.dropwizard.sharding.dao.MultiTenantLookupDao;
 import io.appform.dropwizard.sharding.dao.testdata.entities.TestEntity;
 import io.appform.dropwizard.sharding.dao.testdata.multi.MultiPackageTestEntity;
+import io.appform.dropwizard.sharding.sharding.InMemoryLocalShardBlacklistingStore;
+import io.appform.dropwizard.sharding.sharding.ShardBlacklistingStore;
 import org.junit.jupiter.api.Test;
 
 import java.util.HashMap;
@@ -84,6 +86,11 @@ public class MultiTenantBalancedDbShardingBundleWithMultipleClassPath extends Mu
             @Override
             protected MultiTenantShardedHibernateFactory getConfig(TestConfig config) {
                 return testConfig.getShards();
+            }
+
+            @Override
+            protected ShardBlacklistingStore getBlacklistingStore() {
+                return new InMemoryLocalShardBlacklistingStore();
             }
 
         };

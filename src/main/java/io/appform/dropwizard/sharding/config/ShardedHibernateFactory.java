@@ -53,9 +53,6 @@ public class ShardedHibernateFactory {
     private long shardsInitializationTimeoutInSec = 60;
 
     @Valid
-    private BlacklistConfig blacklist;
-
-    @Valid
     private ShardingBundleOptions shardingOptions;
 
     @Valid
