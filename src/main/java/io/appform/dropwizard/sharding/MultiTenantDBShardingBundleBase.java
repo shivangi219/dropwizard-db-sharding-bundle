@@ -54,6 +54,11 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -63,7 +68,7 @@ import java.util.stream.IntStream;
  */
 @Slf4j
 public abstract class MultiTenantDBShardingBundleBase<T extends Configuration> extends
-    BundleCommonBase<T> {
+        BundleCommonBase<T> {
 
   @Getter
   private Map<String, List<SessionFactory>> sessionFactories = Maps.newHashMap();
@@ -98,59 +103,76 @@ public abstract class MultiTenantDBShardingBundleBase<T extends Configuration> e
   @Override
   public void run(T configuration, Environment environment) {
     final var tenantedConfig = getConfig(configuration);
-    tenantedConfig.getTenants().forEach((tenantId, shardConfig) -> {
-      final var blacklistingStore = getBlacklistingStore();
-      final var shardManager = createShardManager(shardConfig.getShards().size(), blacklistingStore);
-      this.shardManagers.put(tenantId, shardManager);
-      final var shardInfoProvider = new ShardInfoProvider(tenantId);
-      this.shardInfoProviders.put(tenantId, shardInfoProvider);
-      //Encryption Support through jasypt-hibernate5
-      var shardingOption = shardConfig.getShardingOptions();
-      shardingOption = Objects.nonNull(shardingOption) ? shardingOption : new ShardingBundleOptions();
-      final var healthCheckManager = new HealthCheckManager(tenantId, environment, shardInfoProvider,
-              blacklistingStore, shardingOption);
-      healthCheckManagers.put(tenantId, healthCheckManager);
-      final var sessionFactorySources = IntStream.range(0, shardConfig.getShards().size())
-              .mapToObj(shard -> {
-                try {
-                  return new SessionFactoryFactory<T>(initialisedEntities, healthCheckManager) {
-                    @Override
-                    protected String name() {
-                      return shardInfoProvider.shardName(shard);
-                    }
+    final int parallelism = fetchParallelism(tenantedConfig);
+    final var executorService = Executors.newFixedThreadPool(parallelism);
+    try {
+      tenantedConfig.getTenants().forEach((tenantId, shardConfig) -> {
+        final var blacklistingStore = getBlacklistingStore();
+        final var shardManager = createShardManager(shardConfig.getShards().size(), blacklistingStore);
+        this.shardManagers.put(tenantId, shardManager);
+        final var shardInfoProvider = new ShardInfoProvider(tenantId);
+        this.shardInfoProviders.put(tenantId, shardInfoProvider);
+        //Encryption Support through jasypt-hibernate5
+        var shardingOption = shardConfig.getShardingOptions();
+        shardingOption =
+                Objects.nonNull(shardingOption) ? shardingOption : new ShardingBundleOptions();
+        final var healthCheckManager = new HealthCheckManager(tenantId, environment, shardInfoProvider,
+                blacklistingStore, shardingOption);
+        healthCheckManagers.put(tenantId, healthCheckManager);
+        final List<CompletableFuture<SessionFactorySource>> futures = IntStream.range(0, shardConfig.getShards().size())
+                .mapToObj(shard -> CompletableFuture.supplyAsync(() -> {
+                  try {
+                    return new SessionFactoryFactory<T>(initialisedEntities, healthCheckManager) {
+                      @Override
+                      protected String name() {
+                        return shardInfoProvider.shardName(shard);
+                      }
 
-                    @Override
-                    public PooledDataSourceFactory getDataSourceFactory(T t) {
-                      return shardConfig.getShards().get(shard);
-                    }
-                  }.build(configuration, environment);
-                } catch (Exception e) {
-                  log.error("Error initializing db sharding bundle for tenant {}", tenantId, e);
-                  throw new RuntimeException(e);
-                }
-              })
-              .collect(Collectors.toList());
-      final var sessionFactoryManager = new SessionFactoryManager(sessionFactorySources);
-      environment.lifecycle().manage(sessionFactoryManager);
-      val sessionFactory = sessionFactorySources
-              .stream()
-              .map(SessionFactorySource::getFactory)
-              .collect(Collectors.toList());
-      sessionFactory.forEach(factory -> factory.getProperties().put("tenant.id", tenantId));
-      if (shardingOption.isEncryptionSupportEnabled()) {
-        Preconditions.checkArgument(shardingOption.getEncryptionIv().length() == 16,
-                "Encryption IV Should be 16 bytes long");
-        registerStringEncryptor(tenantId, shardingOption);
-        registerBigIntegerEncryptor(tenantId, shardingOption);
-        registerBigDecimalEncryptor(tenantId, shardingOption);
-        registerByteEncryptor(tenantId, shardingOption);
+                      @Override
+                      public PooledDataSourceFactory getDataSourceFactory(T t) {
+                        return shardConfig.getShards().get(shard);
+                      }
+                    }.build(configuration, environment);
+                  } catch (Exception e) {
+                    log.error("Failed to build session factory for shard {}", shard, e);
+                    throw new RuntimeException("Shard " + shard + " build failed", e);
+                  }
+                }, executorService))
+                .collect(Collectors.toList());
+        final var sessionFactorySources = getSessionFactorySources(tenantId, futures,
+                tenantedConfig.getShardsInitializationTimeoutInSec());
+        final var sessionFactoryManager = new SessionFactoryManager(sessionFactorySources);
+        environment.lifecycle().manage(sessionFactoryManager);
+        val sessionFactory = sessionFactorySources
+                .stream()
+                .map(SessionFactorySource::getFactory)
+                .collect(Collectors.toList());
+        sessionFactory.forEach(factory -> factory.getProperties().put("tenant.id", tenantId));
+        if (shardingOption.isEncryptionSupportEnabled()) {
+          Preconditions.checkArgument(shardingOption.getEncryptionIv().length() == 16,
+                  "Encryption IV Should be 16 bytes long");
+          registerStringEncryptor(tenantId, shardingOption);
+          registerBigIntegerEncryptor(tenantId, shardingOption);
+          registerBigDecimalEncryptor(tenantId, shardingOption);
+          registerByteEncryptor(tenantId, shardingOption);
+        }
+        this.sessionFactories.put(tenantId, sessionFactory);
+        this.shardingOptions.put(tenantId, shardingOption);
+        setupObservers(shardConfig.getMetricConfig(), environment.metrics());
+        environment.admin().addTask(new BlacklistShardTask(tenantId, shardManager));
+        environment.admin().addTask(new UnblacklistShardTask(tenantId, shardManager));
+      });
+    } finally {
+      executorService.shutdown();
+      try {
+        if (!executorService.awaitTermination(5, TimeUnit.SECONDS)) {
+          executorService.shutdownNow();
+        }
+      } catch (InterruptedException ie) {
+        executorService.shutdownNow();
+        Thread.currentThread().interrupt();
       }
-      this.sessionFactories.put(tenantId, sessionFactory);
-      this.shardingOptions.put(tenantId, shardingOption);
-      setupObservers(shardConfig.getMetricConfig(), environment.metrics());
-      environment.admin().addTask(new BlacklistShardTask(tenantId, shardManager));
-      environment.admin().addTask(new UnblacklistShardTask(tenantId, shardManager));
-    });
+    }
   }
 
   @Override
@@ -231,5 +253,50 @@ public abstract class MultiTenantDBShardingBundleBase<T extends Configuration> e
             "Unknown tenant: " + tenantId);
     return new WrapperDao<>(tenantId, this.sessionFactories.get(tenantId), daoTypeClass,
         extraConstructorParamClasses, extraConstructorParamObjects, this.shardManagers.get(tenantId));
+  }
+
+  private int fetchParallelism(final MultiTenantShardedHibernateFactory shardedHibernateFactory) {
+    final var availableCpus = Runtime.getRuntime().availableProcessors();
+    final var maxNoOfShards = shardedHibernateFactory.getTenants().values().stream()
+            .mapToInt(tenantConfig -> tenantConfig.getShards().size())
+            .max()
+            .orElse(1);
+    final var shardInitializationParallelism = shardedHibernateFactory.getShardInitializationParallelism();
+    if (shardInitializationParallelism == 1) {
+      if (maxNoOfShards >= availableCpus) {
+        log.warn("Shard initialization parallelism is set to 1. Detected {} available CPUs. Consider increasing " +
+                "`shardInitializationParallelism`", availableCpus);
+      } else {
+        log.warn("Shard initialization parallelism is set to 1. Detected {} maximum number of shards. Consider increasing" +
+                "`shardInitializationParallelism`", maxNoOfShards);
+      }
+    }
+    return Math.min(Runtime.getRuntime().availableProcessors(), shardInitializationParallelism);
+  }
+
+
+  private List<SessionFactorySource> getSessionFactorySources(final String tenantId,
+                                                              final List<CompletableFuture<SessionFactorySource>> futures,
+                                                              final long timeoutInSeconds) {
+    List<SessionFactorySource> sessionFactorySources;
+    try {
+      sessionFactorySources = CompletableFuture
+              .allOf(futures.toArray(new CompletableFuture[0]))
+              .thenApply(ignored ->
+                      futures.stream()
+                              .map(CompletableFuture::join)
+                              .collect(Collectors.toList())
+              )
+              .get(timeoutInSeconds, TimeUnit.SECONDS);
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      throw new RuntimeException("Initialization interrupted for tenant " + tenantId, e);
+    } catch (ExecutionException e) {
+      throw new RuntimeException("One or more session factories failed for tenant " + tenantId, e.getCause());
+    } catch (TimeoutException e) {
+      futures.forEach(f -> f.cancel(true));
+      throw new RuntimeException("Timed out waiting " + timeoutInSeconds + "s for tenant " + tenantId, e);
+    }
+    return sessionFactorySources;
   }
 }
