@@ -1,6 +1,5 @@
 package io.appform.dropwizard.sharding.hibernate;
 
-import io.dropwizard.Configuration;
 import io.dropwizard.lifecycle.Managed;
 import lombok.extern.slf4j.Slf4j;
 

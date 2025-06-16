@@ -1,7 +1,6 @@
 package io.appform.dropwizard.sharding.hibernate;
 
 import io.appform.dropwizard.sharding.healthcheck.HealthCheckManager;
-import io.appform.dropwizard.sharding.sharding.ShardBlacklistingStore;
 import io.dropwizard.db.DatabaseConfiguration;
 import io.dropwizard.db.ManagedDataSource;
 import io.dropwizard.db.PooledDataSourceFactory;
