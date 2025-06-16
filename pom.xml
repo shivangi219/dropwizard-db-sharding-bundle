@@ -140,7 +140,6 @@
         <guava-retrying.version>2.0.0</guava-retrying.version>
         <caffeine.version>2.9.3</caffeine.version>
         <jasypt-hibernate5.version>1.9.5</jasypt-hibernate5.version>
-        <jackson-datatype-hibernate5.version>2.13.5</jackson-datatype-hibernate5.version>
         <junit.jupiter.version>5.7.2</junit.jupiter.version>
         <h2.version>1.4.196</h2.version>
         <mockito.version>4.3.1</mockito.version>
@@ -159,9 +158,9 @@
             <dependency>
                 <groupId>io.dropwizard</groupId>
                 <artifactId>dropwizard-dependencies</artifactId>
-                <version>2.1.12</version>
                 <type>pom</type>
                 <scope>import</scope>
+                <version>${dropwizard.version}</version>
             </dependency>
             <dependency>
                 <groupId>org.junit</groupId>
@@ -216,7 +215,6 @@
         <dependency>
             <groupId>com.fasterxml.jackson.datatype</groupId>
             <artifactId>jackson-datatype-hibernate5</artifactId>
-            <version>${jackson-datatype-hibernate5.version}</version>
             <exclusions>
                 <exclusion>
                     <groupId>javax.transaction</groupId>
