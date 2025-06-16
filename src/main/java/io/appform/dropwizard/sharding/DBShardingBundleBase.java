@@ -83,9 +83,9 @@ public abstract class DBShardingBundleBase<T extends Configuration> implements C
 
             @Override
             protected MultiTenantShardedHibernateFactory getConfig(T config) {
-                return new MultiTenantShardedHibernateFactory(
-                        Map.of(dbNamespace, DBShardingBundleBase.this.getConfig(config))
-                );
+                return MultiTenantShardedHibernateFactory.builder()
+                        .tenants(Map.of(dbNamespace, DBShardingBundleBase.this.getConfig(config)))
+                        .build();
             }
 
             @Override
@@ -105,9 +105,9 @@ public abstract class DBShardingBundleBase<T extends Configuration> implements C
 
             @Override
             protected MultiTenantShardedHibernateFactory getConfig(T config) {
-                return new MultiTenantShardedHibernateFactory(
-                        Map.of(dbNamespace, DBShardingBundleBase.this.getConfig(config))
-                );
+                return MultiTenantShardedHibernateFactory.builder()
+                        .tenants(Map.of(dbNamespace, DBShardingBundleBase.this.getConfig(config)))
+                        .build();
             }
 
             @Override

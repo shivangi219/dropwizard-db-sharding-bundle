@@ -29,7 +29,7 @@ public abstract class MultiTenantBundleBasedTestBase {
   protected static class TestConfig extends Configuration {
 
     @Getter
-    private MultiTenantShardedHibernateFactory shards = new MultiTenantShardedHibernateFactory(Map.of("TENANT1",
+    private MultiTenantShardedHibernateFactory shards = new MultiTenantShardedHibernateFactory(60, 1, Map.of("TENANT1",
         ShardedHibernateFactory.builder()
             .shardingOptions(ShardingBundleOptions.builder().build()).build(),
         "TENANT2", ShardedHibernateFactory.builder()
