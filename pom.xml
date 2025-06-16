@@ -140,7 +140,6 @@
         <guava-retrying.version>2.0.0</guava-retrying.version>
         <caffeine.version>2.9.3</caffeine.version>
         <jasypt-hibernate5.version>1.9.5</jasypt-hibernate5.version>
-        <hibernate-core.version>5.6.15.Final</hibernate-core.version>
         <jackson-datatype-hibernate5.version>2.13.5</jackson-datatype-hibernate5.version>
         <junit.jupiter.version>5.7.2</junit.jupiter.version>
         <h2.version>1.4.196</h2.version>
@@ -155,6 +154,14 @@
                 <type>pom</type>
                 <scope>import</scope>
                 <version>${dropwizard.version}</version>
+            </dependency>
+            <!-- Dropwizard Dependencies for transitive deps like hibernate-core -->
+            <dependency>
+                <groupId>io.dropwizard</groupId>
+                <artifactId>dropwizard-dependencies</artifactId>
+                <version>2.1.12</version>
+                <type>pom</type>
+                <scope>import</scope>
             </dependency>
             <dependency>
                 <groupId>org.junit</groupId>
@@ -205,7 +212,6 @@
         <dependency>
             <groupId>org.hibernate</groupId>
             <artifactId>hibernate-core</artifactId>
-            <version>${hibernate-core.version}</version>
         </dependency>
         <dependency>
             <groupId>com.fasterxml.jackson.datatype</groupId>

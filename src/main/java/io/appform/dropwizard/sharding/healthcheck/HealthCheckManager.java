@@ -39,28 +39,27 @@ public class HealthCheckManager {
 
     public void register(final String name,
                          final HealthCheck healthCheck) {
-        if (shardingBundleOptions.isSkipNativeHealthcheck()) {
+        /*
+         * If skipNativeHealthcheck is set, or blacklisting store is not NoopShardBlacklistingStore
+         * we don't register any health checks
+         */
+        if (shardingBundleOptions.isSkipNativeHealthcheck() ||
+                !(blacklistingStore instanceof NoopShardBlacklistingStore)) {
             return;
         }
-        String dbNamespace = shardInfoProvider.namespace(name);
+        final var dbNamespace = shardInfoProvider.namespace(name);
         if (!Objects.equals(dbNamespace, this.namespace)) {
             return;
         }
-        int shardId = shardInfoProvider.shardId(name);
+        final var shardId = shardInfoProvider.shardId(name);
         if (shardId == -1) {
             return;
         }
-        HealthCheck hc = null;
-        if (!(blacklistingStore instanceof NoopShardBlacklistingStore)) {
-            hc = new BlacklistingAwareHealthCheck();
-        } else {
-            hc = healthCheck;
-        }
         dbHealthChecks.put(name, ShardHealthCheckMeta.builder()
-                .healthCheck(hc)
+                .healthCheck(healthCheck)
                 .shardId(shardId)
                 .build());
-        environment.healthChecks().register(name, hc);
+        environment.healthChecks().register(name, healthCheck);
 
     }
 

@@ -151,10 +151,7 @@ public abstract class DBShardingBundleTestBase extends BundleBasedTestBase {
         bundle.initialize(bootstrap);
         bundle.run(testConfig, environment);
         bundle.getShardManager().blacklistShard(1);
-
-        assertTrue(bundle.healthStatus()
-                .values()
-                .stream()
-                .allMatch(status -> status));
+        //no healthchecks for blacklisting aware bundle
+        assertEquals(0, bundle.healthStatus().size());
     }
 }

@@ -126,10 +126,11 @@ public abstract class MultiTenantDBShardingBundleTestBase extends MultiTenantBun
         MultiTenantDBShardingBundleBase<TestConfig> bundle = getBundle();
         bundle.initialize(bootstrap);
         bundle.run(testConfig, environment);
+        //one for each tenant
+        assertEquals(2, bundle.healthStatus().size());
         bundle.getShardManagers().get("TENANT1").blacklistShard(1);
-        assertTrue(bundle.healthStatus()
-                .values()
-                .stream()
-                .allMatch(status -> status.values().stream().reduce(true, (a,b) -> a && b)));
+        //no healthchecks for blacklisting aware bundle
+        assertEquals(0, bundle.healthStatus().get("TENANT1").size());
+
     }
 }

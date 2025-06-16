@@ -112,12 +112,11 @@ public abstract class MultiTenantDBShardingBundleBase<T extends Configuration> e
       this.shardInfoProviders.put(tenantId, shardInfoProvider);
       //Encryption Support through jasypt-hibernate5
       var shardingOption = shardConfig.getShardingOptions();
-      shardingOption =
-              Objects.nonNull(shardingOption) ? shardingOption : new ShardingBundleOptions();
+      shardingOption = Objects.nonNull(shardingOption) ? shardingOption : new ShardingBundleOptions();
       final var healthCheckManager = new HealthCheckManager(tenantId, environment, shardInfoProvider,
               blacklistingStore, shardingOption);
       healthCheckManagers.put(tenantId, healthCheckManager);
-      List<SessionFactorySource> sessionFactorySources = IntStream.range(0, shardConfig.getShards().size())
+      final var sessionFactorySources = IntStream.range(0, shardConfig.getShards().size())
               .mapToObj(shard -> {
                 try {
                   return new SessionFactoryFactory<T>(initialisedEntities, healthCheckManager) {
