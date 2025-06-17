@@ -114,8 +114,7 @@ public abstract class MultiTenantDBShardingBundleBase<T extends Configuration> e
         this.shardInfoProviders.put(tenantId, shardInfoProvider);
         //Encryption Support through jasypt-hibernate5
         var shardingOption = shardConfig.getShardingOptions();
-        shardingOption =
-                Objects.nonNull(shardingOption) ? shardingOption : new ShardingBundleOptions();
+        shardingOption = Objects.nonNull(shardingOption) ? shardingOption : new ShardingBundleOptions();
         final var healthCheckManager = new HealthCheckManager(tenantId, environment, shardInfoProvider,
                 blacklistingStore, shardingOption);
         healthCheckManagers.put(tenantId, healthCheckManager);
@@ -271,7 +270,7 @@ public abstract class MultiTenantDBShardingBundleBase<T extends Configuration> e
                 "`shardInitializationParallelism`", maxNoOfShards);
       }
     }
-    return Math.min(Runtime.getRuntime().availableProcessors(), shardInitializationParallelism);
+    return Math.min(availableCpus, shardInitializationParallelism);
   }
 
 

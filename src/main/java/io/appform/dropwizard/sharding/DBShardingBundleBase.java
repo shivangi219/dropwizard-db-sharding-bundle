@@ -23,6 +23,7 @@ import io.appform.dropwizard.sharding.caching.RelationalCache;
 import io.appform.dropwizard.sharding.config.MetricConfig;
 import io.appform.dropwizard.sharding.config.MultiTenantShardedHibernateFactory;
 import io.appform.dropwizard.sharding.config.ShardedHibernateFactory;
+import io.appform.dropwizard.sharding.config.ShardingBundleOptions;
 import io.appform.dropwizard.sharding.dao.AbstractDAO;
 import io.appform.dropwizard.sharding.dao.CacheableLookupDao;
 import io.appform.dropwizard.sharding.dao.CacheableRelationalDao;
@@ -46,6 +47,7 @@ import org.hibernate.SessionFactory;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.Supplier;
 
 /**
@@ -83,8 +85,13 @@ public abstract class DBShardingBundleBase<T extends Configuration> implements C
 
             @Override
             protected MultiTenantShardedHibernateFactory getConfig(T config) {
+                final var shardedHibernateFactory = DBShardingBundleBase.this.getConfig(config);
+                var shardingOption = shardedHibernateFactory.getShardingOptions();
+                shardingOption = shardingOption == null ? new ShardingBundleOptions() : shardingOption;
                 return MultiTenantShardedHibernateFactory.builder()
-                        .tenants(Map.of(dbNamespace, DBShardingBundleBase.this.getConfig(config)))
+                        .tenants(Map.of(dbNamespace, shardedHibernateFactory))
+                        .shardInitializationParallelism(shardingOption.getShardInitializationParallelism())
+                        .shardsInitializationTimeoutInSec(shardingOption.getShardsInitializationTimeoutInSec())
                         .build();
             }
 
@@ -105,8 +112,13 @@ public abstract class DBShardingBundleBase<T extends Configuration> implements C
 
             @Override
             protected MultiTenantShardedHibernateFactory getConfig(T config) {
+                final var shardedHibernateFactory = DBShardingBundleBase.this.getConfig(config);
+                var shardingOption = shardedHibernateFactory.getShardingOptions();
+                shardingOption = shardingOption == null ? new ShardingBundleOptions() : shardingOption;
                 return MultiTenantShardedHibernateFactory.builder()
-                        .tenants(Map.of(dbNamespace, DBShardingBundleBase.this.getConfig(config)))
+                        .tenants(Map.of(dbNamespace, shardedHibernateFactory))
+                        .shardInitializationParallelism(shardingOption.getShardInitializationParallelism())
+                        .shardsInitializationTimeoutInSec(shardingOption.getShardsInitializationTimeoutInSec())
                         .build();
             }
 
