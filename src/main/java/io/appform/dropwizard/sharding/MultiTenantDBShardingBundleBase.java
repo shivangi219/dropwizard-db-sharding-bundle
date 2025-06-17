@@ -270,7 +270,11 @@ public abstract class MultiTenantDBShardingBundleBase<T extends Configuration> e
                 "`shardInitializationParallelism`", maxNoOfShards);
       }
     }
-    return Math.min(availableCpus, shardInitializationParallelism);
+    if (shardInitializationParallelism > availableCpus) {
+      log.warn("Shard initialization parallelism is set to {}. Detected {} available CPUs. " +
+              "Parallelism beyond available CPUs is not supported", shardInitializationParallelism, availableCpus);
+    }
+    return Math.min(shardInitializationParallelism, availableCpus);
   }
 
 
