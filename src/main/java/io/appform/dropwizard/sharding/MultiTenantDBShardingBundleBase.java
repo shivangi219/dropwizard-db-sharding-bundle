@@ -156,6 +156,9 @@ public abstract class MultiTenantDBShardingBundleBase<T extends Configuration> e
   @Override
   @SuppressWarnings("unchecked")
   public void initialize(Bootstrap<?> bootstrap) {
+    // Registers the Hibernate5Module with Jackson's ObjectMapper to support serialization of Hibernate entities.
+    // Enables FORCE_LAZY_LOADING to automatically fetch and serialize lazy-loaded associations (e.g., @OneToMany(fetch = LAZY))
+    // during JSON serialization, as long as the Hibernate session is still open.
     bootstrap.getObjectMapper().registerModule(new Hibernate5Module().enable(Feature.FORCE_LAZY_LOADING));
   }
 

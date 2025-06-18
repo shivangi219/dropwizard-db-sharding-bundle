@@ -11,7 +11,7 @@ public class SessionFactoryManager implements Managed {
 
     private final List<SessionFactorySource> sessionFactorySources = new ArrayList<>();
 
-    public SessionFactoryManager(List<SessionFactorySource> sources) {
+    public SessionFactoryManager(final List<SessionFactorySource> sources) {
         sessionFactorySources.addAll(sources);
     }
 
