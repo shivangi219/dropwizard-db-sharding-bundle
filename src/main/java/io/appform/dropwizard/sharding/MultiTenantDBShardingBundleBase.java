@@ -112,14 +112,14 @@ public abstract class MultiTenantDBShardingBundleBase<T extends Configuration> e
       final var executorService = Executors.newFixedThreadPool(shardInitializationParallelism);
       try {
         final var blacklistingStore = getBlacklistingStore();
-        final var shardManager = createShardManager(shardConfig.getShards().size(), blacklistingStore);
+        final var shardManager = createShardManager(shardCount, blacklistingStore);
         this.shardManagers.put(tenantId, shardManager);
         final var shardInfoProvider = new ShardInfoProvider(tenantId);
         this.shardInfoProviders.put(tenantId, shardInfoProvider);
         final var healthCheckManager = new HealthCheckManager(tenantId, environment, shardInfoProvider,
                 blacklistingStore, shardingOption);
         healthCheckManagers.put(tenantId, healthCheckManager);
-        final List<CompletableFuture<SessionFactorySource>> futures = IntStream.range(0, shardConfig.getShards().size())
+        final List<CompletableFuture<SessionFactorySource>> futures = IntStream.range(0, shardCount)
                 .mapToObj(shard -> CompletableFuture.supplyAsync(() -> {
                   try {
                     return new SessionFactoryFactory<T>(initialisedEntities, healthCheckManager) {
