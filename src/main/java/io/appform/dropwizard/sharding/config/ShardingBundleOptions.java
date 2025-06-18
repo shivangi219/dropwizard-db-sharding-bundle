@@ -23,4 +23,10 @@ public class ShardingBundleOptions {
 
     private String encryptionIv;
 
+    @Builder.Default
+    private long shardsInitializationTimeoutInSec = 60;
+
+    @Builder.Default
+    private int shardInitializationParallelism = 1;
+
 }
