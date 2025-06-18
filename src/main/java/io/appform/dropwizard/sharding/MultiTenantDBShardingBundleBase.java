@@ -17,6 +17,8 @@
 
 package io.appform.dropwizard.sharding;
 
+import com.fasterxml.jackson.datatype.hibernate5.Hibernate5Module;
+import com.fasterxml.jackson.datatype.hibernate5.Hibernate5Module.Feature;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Maps;
@@ -27,20 +29,20 @@ import io.appform.dropwizard.sharding.caching.RelationalCache;
 import io.appform.dropwizard.sharding.config.MetricConfig;
 import io.appform.dropwizard.sharding.config.MultiTenantShardedHibernateFactory;
 import io.appform.dropwizard.sharding.config.ShardingBundleOptions;
+import io.appform.dropwizard.sharding.dao.AbstractDAO;
 import io.appform.dropwizard.sharding.dao.MultiTenantCacheableLookupDao;
 import io.appform.dropwizard.sharding.dao.MultiTenantCacheableRelationalDao;
 import io.appform.dropwizard.sharding.dao.MultiTenantLookupDao;
 import io.appform.dropwizard.sharding.dao.MultiTenantRelationalDao;
 import io.appform.dropwizard.sharding.dao.WrapperDao;
 import io.appform.dropwizard.sharding.healthcheck.HealthCheckManager;
+import io.appform.dropwizard.sharding.hibernate.SessionFactoryFactory;
+import io.appform.dropwizard.sharding.hibernate.SessionFactoryManager;
+import io.appform.dropwizard.sharding.hibernate.SessionFactorySource;
 import io.appform.dropwizard.sharding.sharding.ShardBlacklistingStore;
 import io.appform.dropwizard.sharding.sharding.ShardManager;
 import io.dropwizard.Configuration;
-import io.dropwizard.ConfiguredBundle;
 import io.dropwizard.db.PooledDataSourceFactory;
-import io.dropwizard.hibernate.AbstractDAO;
-import io.dropwizard.hibernate.HibernateBundle;
-import io.dropwizard.hibernate.SessionFactoryFactory;
 import io.dropwizard.setup.Bootstrap;
 import io.dropwizard.setup.Environment;
 import lombok.Getter;
@@ -62,8 +64,6 @@ import java.util.stream.IntStream;
 @Slf4j
 public abstract class MultiTenantDBShardingBundleBase<T extends Configuration> extends
     BundleCommonBase<T> {
-
-  private Map<String, List<HibernateBundle<T>>> shardBundles = Maps.newHashMap();
 
   @Getter
   private Map<String, List<SessionFactory>> sessionFactories = Maps.newHashMap();
@@ -97,25 +97,23 @@ public abstract class MultiTenantDBShardingBundleBase<T extends Configuration> e
 
   @Override
   public void run(T configuration, Environment environment) {
-    val tenantedConfig = getConfig(configuration);
+    final var tenantedConfig = getConfig(configuration);
     tenantedConfig.getTenants().forEach((tenantId, shardConfig) -> {
-      var blacklistingStore = getBlacklistingStore();
-      var shardManager = createShardManager(shardConfig.getShards().size(), blacklistingStore);
+      final var blacklistingStore = getBlacklistingStore();
+      final var shardManager = createShardManager(shardConfig.getShards().size(), blacklistingStore);
       this.shardManagers.put(tenantId, shardManager);
-      val shardInfoProvider = new ShardInfoProvider(tenantId);
-      shardInfoProviders.put(tenantId, shardInfoProvider);
-      var healthCheckManager = new HealthCheckManager(tenantId, shardInfoProvider,
-          blacklistingStore,
-          shardManager);
-      healthCheckManagers.put(tenantId, healthCheckManager);
+      final var shardInfoProvider = new ShardInfoProvider(tenantId);
+      this.shardInfoProviders.put(tenantId, shardInfoProvider);
       //Encryption Support through jasypt-hibernate5
       var shardingOption = shardConfig.getShardingOptions();
-      shardingOption =
-          Objects.nonNull(shardingOption) ? shardingOption : new ShardingBundleOptions();
-      List<HibernateBundle<T>> shardedBundle = IntStream.range(0, shardConfig.getShards().size())
-          .mapToObj(
-              shard ->
-                  new HibernateBundle<T>(initialisedEntities, new SessionFactoryFactory()) {
+      shardingOption = Objects.nonNull(shardingOption) ? shardingOption : new ShardingBundleOptions();
+      final var healthCheckManager = new HealthCheckManager(tenantId, environment, shardInfoProvider,
+              blacklistingStore, shardingOption);
+      healthCheckManagers.put(tenantId, healthCheckManager);
+      final var sessionFactorySources = IntStream.range(0, shardConfig.getShards().size())
+              .mapToObj(shard -> {
+                try {
+                  return new SessionFactoryFactory<T>(initialisedEntities, healthCheckManager) {
                     @Override
                     protected String name() {
                       return shardInfoProvider.shardName(shard);
@@ -125,22 +123,23 @@ public abstract class MultiTenantDBShardingBundleBase<T extends Configuration> e
                     public PooledDataSourceFactory getDataSourceFactory(T t) {
                       return shardConfig.getShards().get(shard);
                     }
-                  }).collect(Collectors.toList());
-      shardedBundle.forEach(hibernateBundle -> {
-        try {
-          hibernateBundle.run(configuration, environment);
-        } catch (Exception e) {
-          log.error("Error initializing db sharding bundle for tenant {}", tenantId, e);
-          throw new RuntimeException(e);
-        }
-      });
-      this.shardBundles.put(tenantId, shardedBundle);
-      val sessionFactory = shardedBundle.stream().map(HibernateBundle::getSessionFactory)
-          .collect(Collectors.toList());
+                  }.build(configuration, environment);
+                } catch (Exception e) {
+                  log.error("Error initializing db sharding bundle for tenant {}", tenantId, e);
+                  throw new RuntimeException(e);
+                }
+              })
+              .collect(Collectors.toList());
+      final var sessionFactoryManager = new SessionFactoryManager(sessionFactorySources);
+      environment.lifecycle().manage(sessionFactoryManager);
+      val sessionFactory = sessionFactorySources
+              .stream()
+              .map(SessionFactorySource::getFactory)
+              .collect(Collectors.toList());
       sessionFactory.forEach(factory -> factory.getProperties().put("tenant.id", tenantId));
       if (shardingOption.isEncryptionSupportEnabled()) {
         Preconditions.checkArgument(shardingOption.getEncryptionIv().length() == 16,
-            "Encryption IV Should be 16 bytes long");
+                "Encryption IV Should be 16 bytes long");
         registerStringEncryptor(tenantId, shardingOption);
         registerBigIntegerEncryptor(tenantId, shardingOption);
         registerBigDecimalEncryptor(tenantId, shardingOption);
@@ -148,7 +147,6 @@ public abstract class MultiTenantDBShardingBundleBase<T extends Configuration> e
       }
       this.sessionFactories.put(tenantId, sessionFactory);
       this.shardingOptions.put(tenantId, shardingOption);
-      healthCheckManager.manageHealthChecks(shardConfig.getBlacklist(), environment);
       setupObservers(shardConfig.getMetricConfig(), environment.metrics());
       environment.admin().addTask(new BlacklistShardTask(tenantId, shardManager));
       environment.admin().addTask(new UnblacklistShardTask(tenantId, shardManager));
@@ -158,35 +156,14 @@ public abstract class MultiTenantDBShardingBundleBase<T extends Configuration> e
   @Override
   @SuppressWarnings("unchecked")
   public void initialize(Bootstrap<?> bootstrap) {
-    healthCheckManagers.values().forEach(healthCheckManager -> {
-      bootstrap.getHealthCheckRegistry().addListener(healthCheckManager);
-    });
-    shardBundles.values().forEach(
-        hibernateBundle -> bootstrap.addBundle((ConfiguredBundle) hibernateBundle));
+    // Registers the Hibernate5Module with Jackson's ObjectMapper to support serialization of Hibernate entities.
+    // Enables FORCE_LAZY_LOADING to automatically fetch and serialize lazy-loaded associations (e.g., @OneToMany(fetch = LAZY))
+    // during JSON serialization, as long as the Hibernate session is still open.
+    bootstrap.getObjectMapper().registerModule(new Hibernate5Module().enable(Feature.FORCE_LAZY_LOADING));
   }
 
   @VisibleForTesting
-  public void runBundles(T configuration, Environment environment) {
-    shardBundles.forEach((tenantId, hibernateBundles) -> {
-      log.info("Running hibernate bundles for tenant: {}", tenantId);
-      hibernateBundles.forEach(hibernateBundle -> {
-        try {
-          hibernateBundle.run(configuration, environment);
-        } catch (Exception e) {
-          log.error("Error initializing db sharding bundle for tenant {}", tenantId, e);
-          throw new RuntimeException(e);
-        }
-      });
-    });
-  }
-
-  @VisibleForTesting
-  public void initBundles(Bootstrap bootstrap) {
-    initialize(bootstrap);
-  }
-
-  @VisibleForTesting
-  public Map<String, Map<Integer, Boolean>> healthStatus() {
+  protected Map<String, Map<Integer, Boolean>> healthStatus() {
     return healthCheckManagers.entrySet().stream()
         .collect(Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue().status()));
   }

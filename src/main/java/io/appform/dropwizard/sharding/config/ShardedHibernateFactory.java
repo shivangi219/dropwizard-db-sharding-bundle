@@ -50,9 +50,6 @@ public class ShardedHibernateFactory {
     private List<DataSourceFactory> shards = Lists.newArrayList();
 
     @Valid
-    private BlacklistConfig blacklist;
-
-    @Valid
     private ShardingBundleOptions shardingOptions;
 
     @Valid

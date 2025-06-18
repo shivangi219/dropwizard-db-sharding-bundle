@@ -13,7 +13,7 @@ import io.appform.dropwizard.sharding.observers.TransactionObserver;
 import io.appform.dropwizard.sharding.observers.internal.FilteringObserver;
 import io.appform.dropwizard.sharding.observers.internal.ListenerTriggeringObserver;
 import io.appform.dropwizard.sharding.observers.internal.TerminalTransactionObserver;
-import io.appform.dropwizard.sharding.sharding.InMemoryLocalShardBlacklistingStore;
+import io.appform.dropwizard.sharding.sharding.NoopShardBlacklistingStore;
 import io.appform.dropwizard.sharding.sharding.ShardBlacklistingStore;
 import io.dropwizard.Configuration;
 import io.dropwizard.ConfiguredBundle;
@@ -58,7 +58,7 @@ public abstract class BundleCommonBase<T extends Configuration> implements Confi
   }
 
   protected ShardBlacklistingStore getBlacklistingStore() {
-    return new InMemoryLocalShardBlacklistingStore();
+    return new NoopShardBlacklistingStore();
   }
 
   public void setupObservers(final MetricConfig metricConfig,
