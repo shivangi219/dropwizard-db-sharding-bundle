@@ -60,6 +60,7 @@ public abstract class SessionFactoryFactory<T> implements DatabaseConfiguration<
                 dbConfig.getValidationQueryTimeout().orElse(Duration.seconds(5)),
                 sessionFactory,
                 dbConfig.getValidationQuery()));
+        log.info("Initialized db sharding bundle for shard {}", name());
         return SessionFactorySource.builder()
                 .dataSource(dataSource)
                 .factory(sessionFactory)
