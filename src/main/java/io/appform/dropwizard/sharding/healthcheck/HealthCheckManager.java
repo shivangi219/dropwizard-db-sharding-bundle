@@ -2,7 +2,7 @@ package io.appform.dropwizard.sharding.healthcheck;
 
 import com.codahale.metrics.health.HealthCheck;
 import io.appform.dropwizard.sharding.ShardInfoProvider;
-import io.appform.dropwizard.sharding.config.ShardingBundleOptions;
+import io.appform.dropwizard.sharding.config.TenantShardingBundleOptions;
 import io.appform.dropwizard.sharding.sharding.NoopShardBlacklistingStore;
 import io.appform.dropwizard.sharding.sharding.ShardBlacklistingStore;
 import io.dropwizard.setup.Environment;
@@ -21,7 +21,7 @@ public class HealthCheckManager {
     private final Environment environment;
     private final ShardInfoProvider shardInfoProvider;
     private final ShardBlacklistingStore blacklistingStore;
-    private final ShardingBundleOptions shardingBundleOptions;
+    private final TenantShardingBundleOptions shardingBundleOptions;
 
     private final Map<String, ShardHealthCheckMeta> dbHealthChecks = new ConcurrentHashMap<>();
 
@@ -29,7 +29,7 @@ public class HealthCheckManager {
                               final Environment environment,
                               final ShardInfoProvider shardInfoProvider,
                               final ShardBlacklistingStore blacklistingStore,
-                              final ShardingBundleOptions shardingBundleOptions) {
+                              final TenantShardingBundleOptions shardingBundleOptions) {
         this.namespace = namespace;
         this.environment = environment;
         this.shardInfoProvider = shardInfoProvider;

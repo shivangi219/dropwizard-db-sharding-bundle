@@ -22,7 +22,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import io.appform.dropwizard.sharding.ShardInfoProvider;
-import io.appform.dropwizard.sharding.config.ShardingBundleOptions;
+import io.appform.dropwizard.sharding.config.TenantShardingBundleOptions;
 import io.appform.dropwizard.sharding.dao.operations.Count;
 import io.appform.dropwizard.sharding.dao.operations.CountByQuerySpec;
 import io.appform.dropwizard.sharding.dao.operations.Get;
@@ -271,7 +271,7 @@ public class MultiTenantRelationalDao<T> implements ShardedDao<T> {
     @Getter
     private final ShardCalculator<String> shardCalculator;
     @Getter
-    private final Map<String, ShardingBundleOptions> shardingOptions;
+    private final Map<String, TenantShardingBundleOptions> shardingOptions;
     private final Field keyField;
 
     private final Map<String, TransactionExecutor> transactionExecutor = Maps.newHashMap();
@@ -300,7 +300,7 @@ public class MultiTenantRelationalDao<T> implements ShardedDao<T> {
             Map<String, List<SessionFactory>> sessionFactories,
             Class<T> entityClass,
             Map<String, ShardManager> shardManagers,
-            Map<String, ShardingBundleOptions> shardingOptions,
+            Map<String, TenantShardingBundleOptions> shardingOptions,
             final Map<String, ShardInfoProvider> shardInfoProviders,
             final TransactionObserver observer) {
         this.shardCalculator = new ShardCalculator<>(shardManagers, new ConsistentHashBucketIdExtractor<>(shardManagers));

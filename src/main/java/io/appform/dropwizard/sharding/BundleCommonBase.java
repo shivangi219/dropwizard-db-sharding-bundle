@@ -4,7 +4,7 @@ import com.codahale.metrics.MetricRegistry;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import io.appform.dropwizard.sharding.config.MetricConfig;
-import io.appform.dropwizard.sharding.config.ShardingBundleOptions;
+import io.appform.dropwizard.sharding.config.TenantShardingBundleOptions;
 import io.appform.dropwizard.sharding.filters.TransactionFilter;
 import io.appform.dropwizard.sharding.listeners.TransactionListener;
 import io.appform.dropwizard.sharding.metrics.TransactionMetricManager;
@@ -125,7 +125,7 @@ public abstract class BundleCommonBase<T extends Configuration> implements Confi
     log.info("Registered filter: {}", filter.getClass().getSimpleName());
   }
 
-  protected void registerStringEncryptor(String tenantId, ShardingBundleOptions shardingOption) {
+  protected void registerStringEncryptor(String tenantId, TenantShardingBundleOptions shardingOption) {
     StandardPBEStringEncryptor strongEncryptor = new StandardPBEStringEncryptor();
     HibernatePBEEncryptorRegistry encryptorRegistry = HibernatePBEEncryptorRegistry.getInstance();
     strongEncryptor.setAlgorithm(shardingOption.getEncryptionAlgorithm());
@@ -143,7 +143,7 @@ public abstract class BundleCommonBase<T extends Configuration> implements Confi
   }
 
   protected void registerBigIntegerEncryptor(String tenantId,
-      ShardingBundleOptions shardingOption) {
+                                             TenantShardingBundleOptions shardingOption) {
     StandardPBEBigIntegerEncryptor strongEncryptor = new StandardPBEBigIntegerEncryptor();
     HibernatePBEEncryptorRegistry encryptorRegistry = HibernatePBEEncryptorRegistry.getInstance();
     strongEncryptor.setAlgorithm(shardingOption.getEncryptionAlgorithm());
@@ -160,7 +160,7 @@ public abstract class BundleCommonBase<T extends Configuration> implements Confi
   }
 
   protected void registerBigDecimalEncryptor(String tenantId,
-      ShardingBundleOptions shardingOption) {
+                                             TenantShardingBundleOptions shardingOption) {
     StandardPBEBigDecimalEncryptor strongEncryptor = new StandardPBEBigDecimalEncryptor();
     HibernatePBEEncryptorRegistry encryptorRegistry = HibernatePBEEncryptorRegistry.getInstance();
     strongEncryptor.setAlgorithm(shardingOption.getEncryptionAlgorithm());
@@ -176,7 +176,7 @@ public abstract class BundleCommonBase<T extends Configuration> implements Confi
     }
   }
 
-  protected void registerByteEncryptor(String tenantId, ShardingBundleOptions shardingOption) {
+  protected void registerByteEncryptor(String tenantId, TenantShardingBundleOptions shardingOption) {
     StandardPBEByteEncryptor strongEncryptor = new StandardPBEByteEncryptor();
     HibernatePBEEncryptorRegistry encryptorRegistry = HibernatePBEEncryptorRegistry.getInstance();
     strongEncryptor.setAlgorithm(shardingOption.getEncryptionAlgorithm());

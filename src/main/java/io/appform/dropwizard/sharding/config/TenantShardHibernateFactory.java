@@ -33,7 +33,7 @@ import java.util.List;
 /**
  * {@summary Config for shards hibernate factory.
  * <ul>
- * <li>shards : This holds shards information</li>
+ * <li>shards : This holds shards information.</li>
  * <li>shardingOptions : This can be used to set certain settings in db-bundle like skipTransactionOnRead etc.</li>
  * </ul>}
  */
@@ -41,7 +41,7 @@ import java.util.List;
 @AllArgsConstructor
 @NoArgsConstructor
 @Builder
-public class ShardedHibernateFactory {
+public class TenantShardHibernateFactory {
     @NotNull
     @NotEmpty
     @Valid
@@ -49,7 +49,7 @@ public class ShardedHibernateFactory {
     private List<DataSourceFactory> shards = Lists.newArrayList();
 
     @Valid
-    private ShardingBundleOptions shardingOptions;
+    private TenantShardingBundleOptions shardingOptions;
 
     @Valid
     private MetricConfig metricConfig;

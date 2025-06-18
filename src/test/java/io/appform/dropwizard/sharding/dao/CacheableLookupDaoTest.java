@@ -23,7 +23,7 @@ import io.appform.dropwizard.sharding.DBShardingBundleBase;
 import io.appform.dropwizard.sharding.ShardInfoProvider;
 import io.appform.dropwizard.sharding.caching.LookupCache;
 import io.appform.dropwizard.sharding.caching.RelationalCache;
-import io.appform.dropwizard.sharding.config.ShardingBundleOptions;
+import io.appform.dropwizard.sharding.config.TenantShardingBundleOptions;
 import io.appform.dropwizard.sharding.dao.testdata.entities.Audit;
 import io.appform.dropwizard.sharding.dao.testdata.entities.Phone;
 import io.appform.dropwizard.sharding.dao.testdata.entities.TestEntity;
@@ -89,7 +89,7 @@ public class CacheableLookupDaoTest {
         }
         final ShardManager shardManager = new BalancedShardManager(sessionFactories.size());
         final ShardInfoProvider shardInfoProvider = new ShardInfoProvider("default");
-        final ShardingBundleOptions shardingBundleOptions = new ShardingBundleOptions();
+        final TenantShardingBundleOptions shardingBundleOptions = new TenantShardingBundleOptions();
         lookupDao = new CacheableLookupDao<>(DBShardingBundleBase.DEFAULT_NAMESPACE,
                 new MultiTenantCacheableLookupDao<>(
                         Map.of(DBShardingBundleBase.DEFAULT_NAMESPACE, sessionFactories),

@@ -2,7 +2,7 @@ package io.appform.dropwizard.sharding;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
-import io.appform.dropwizard.sharding.config.ShardingBundleOptions;
+import io.appform.dropwizard.sharding.config.TenantShardingBundleOptions;
 import io.appform.dropwizard.sharding.dao.LookupDao;
 import io.appform.dropwizard.sharding.dao.MultiTenantLookupDao;
 import io.appform.dropwizard.sharding.dao.testdata.entities.ScrollTestEntity;
@@ -50,7 +50,7 @@ public class ScrollTest {
             sessionFactories.add(buildSessionFactory(String.format("db_%d", i)));
         }
         val shardManager = new BalancedShardManager(sessionFactories.size());
-        val shardingOptions = new ShardingBundleOptions();
+        val shardingOptions = new TenantShardingBundleOptions();
         val shardInfoProvider = new ShardInfoProvider("default");
         val observer = new TerminalTransactionObserver();
         lookupDao = new LookupDao<>(DBShardingBundleBase.DEFAULT_NAMESPACE,

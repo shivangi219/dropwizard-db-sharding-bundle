@@ -24,6 +24,8 @@ import io.appform.dropwizard.sharding.config.MetricConfig;
 import io.appform.dropwizard.sharding.config.MultiTenantShardedHibernateFactory;
 import io.appform.dropwizard.sharding.config.ShardedHibernateFactory;
 import io.appform.dropwizard.sharding.config.ShardingBundleOptions;
+import io.appform.dropwizard.sharding.config.TenantShardHibernateFactory;
+import io.appform.dropwizard.sharding.config.TenantShardingBundleOptions;
 import io.appform.dropwizard.sharding.dao.AbstractDAO;
 import io.appform.dropwizard.sharding.dao.CacheableLookupDao;
 import io.appform.dropwizard.sharding.dao.CacheableRelationalDao;
@@ -47,6 +49,7 @@ import org.hibernate.SessionFactory;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.Supplier;
 
 /**
@@ -84,14 +87,7 @@ public abstract class DBShardingBundleBase<T extends Configuration> implements C
 
             @Override
             protected MultiTenantShardedHibernateFactory getConfig(T config) {
-                final var shardedHibernateFactory = DBShardingBundleBase.this.getConfig(config);
-                var shardingOption = shardedHibernateFactory.getShardingOptions();
-                shardingOption = shardingOption == null ? new ShardingBundleOptions() : shardingOption;
-                return MultiTenantShardedHibernateFactory.builder()
-                        .tenants(Map.of(dbNamespace, shardedHibernateFactory))
-                        .shardInitializationParallelism(shardingOption.getShardInitializationParallelism())
-                        .shardsInitializationTimeoutInSec(shardingOption.getShardsInitializationTimeoutInSec())
-                        .build();
+                return getMultiTenantShardedHibernateFactory(config, dbNamespace);
             }
 
             @Override
@@ -111,14 +107,7 @@ public abstract class DBShardingBundleBase<T extends Configuration> implements C
 
             @Override
             protected MultiTenantShardedHibernateFactory getConfig(T config) {
-                final var shardedHibernateFactory = DBShardingBundleBase.this.getConfig(config);
-                var shardingOption = shardedHibernateFactory.getShardingOptions();
-                shardingOption = shardingOption == null ? new ShardingBundleOptions() : shardingOption;
-                return MultiTenantShardedHibernateFactory.builder()
-                        .tenants(Map.of(dbNamespace, shardedHibernateFactory))
-                        .shardInitializationParallelism(shardingOption.getShardInitializationParallelism())
-                        .shardsInitializationTimeoutInSec(shardingOption.getShardsInitializationTimeoutInSec())
-                        .build();
+                return getMultiTenantShardedHibernateFactory(config, dbNamespace);
             }
 
             @Override
@@ -218,5 +207,27 @@ public abstract class DBShardingBundleBase<T extends Configuration> implements C
 
     public void registerFilter(TransactionFilter transactionFilter) {
         delegate.registerFilter(transactionFilter);
+    }
+
+    private MultiTenantShardedHibernateFactory getMultiTenantShardedHibernateFactory(T config, String dbNamespace) {
+        final var shardedHibernateFactory = DBShardingBundleBase.this.getConfig(config);
+        var shardingOption = shardedHibernateFactory.getShardingOptions();
+        shardingOption = Objects.nonNull(shardingOption) ? shardingOption : new ShardingBundleOptions();
+        return new MultiTenantShardedHibernateFactory(
+                shardingOption.getShardsInitializationTimeoutInSec(),
+                shardingOption.getShardInitializationParallelism(),
+                Map.of(dbNamespace, TenantShardHibernateFactory.builder()
+                        .shards(shardedHibernateFactory.getShards())
+                        .shardingOptions(TenantShardingBundleOptions.builder()
+                                .skipReadOnlyTransaction(shardingOption.isSkipReadOnlyTransaction())
+                                .skipNativeHealthcheck(shardingOption.isSkipNativeHealthcheck())
+                                .encryptionSupportEnabled(shardingOption.isEncryptionSupportEnabled())
+                                .encryptionAlgorithm(shardingOption.getEncryptionAlgorithm())
+                                .encryptionPassword(shardingOption.getEncryptionPassword())
+                                .encryptionIv(shardingOption.getEncryptionIv())
+                                .build())
+                        .metricConfig(shardedHibernateFactory.getMetricConfig())
+                        .build())
+        );
     }
 }

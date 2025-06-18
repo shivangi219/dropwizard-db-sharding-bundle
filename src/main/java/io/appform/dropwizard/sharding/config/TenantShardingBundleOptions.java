@@ -9,8 +9,7 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class ShardingBundleOptions {
-
+public class TenantShardingBundleOptions {
     private boolean skipReadOnlyTransaction = false;
 
     private boolean skipNativeHealthcheck = false;
@@ -23,11 +22,5 @@ public class ShardingBundleOptions {
     private String encryptionPassword;
 
     private String encryptionIv;
-
-    @Builder.Default
-    private long shardsInitializationTimeoutInSec = 60;
-
-    @Builder.Default
-    private int shardInitializationParallelism = 1;
 
 }

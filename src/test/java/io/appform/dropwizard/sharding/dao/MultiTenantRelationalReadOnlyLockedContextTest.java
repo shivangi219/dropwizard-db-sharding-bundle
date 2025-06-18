@@ -3,7 +3,7 @@ package io.appform.dropwizard.sharding.dao;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import io.appform.dropwizard.sharding.ShardInfoProvider;
-import io.appform.dropwizard.sharding.config.ShardingBundleOptions;
+import io.appform.dropwizard.sharding.config.TenantShardingBundleOptions;
 import io.appform.dropwizard.sharding.dao.interceptors.TimerObserver;
 import io.appform.dropwizard.sharding.dao.listeners.LoggingListener;
 import io.appform.dropwizard.sharding.observers.internal.ListenerTriggeringObserver;
@@ -77,8 +77,8 @@ public class MultiTenantRelationalReadOnlyLockedContextTest {
     Map<String, ShardManager> shardManager = new HashMap<>();
     sessionFactories.forEach((tenant, sessionFactory) ->
         shardManager.put(tenant, new BalancedShardManager(sessionFactory.size())));
-    final Map<String, ShardingBundleOptions> shardingOptions = Map.of("TENANT1",
-        new ShardingBundleOptions(), "TENANT2", new ShardingBundleOptions());
+    final Map<String, TenantShardingBundleOptions> shardingOptions = Map.of("TENANT1",
+        new TenantShardingBundleOptions(), "TENANT2", new TenantShardingBundleOptions());
 
     final Map<String, ShardInfoProvider> shardInfoProvider = Map.of("TENANT1",
         new ShardInfoProvider("TENANT1"),

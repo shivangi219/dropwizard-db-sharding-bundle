@@ -22,7 +22,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import io.appform.dropwizard.sharding.DBShardingBundleBase;
 import io.appform.dropwizard.sharding.ShardInfoProvider;
-import io.appform.dropwizard.sharding.config.ShardingBundleOptions;
+import io.appform.dropwizard.sharding.config.TenantShardingBundleOptions;
 import io.appform.dropwizard.sharding.dao.LockedContext;
 import io.appform.dropwizard.sharding.dao.LookupDao;
 import io.appform.dropwizard.sharding.dao.MultiTenantLookupDao;
@@ -98,7 +98,7 @@ public class LockTest {
             sessionFactories.add(sessionFactory);
         }
         final ShardManager shardManager = new BalancedShardManager(sessionFactories.size());
-        final ShardingBundleOptions shardingOptions = ShardingBundleOptions.builder().skipReadOnlyTransaction(true).build();
+        final TenantShardingBundleOptions shardingOptions = TenantShardingBundleOptions.builder().skipReadOnlyTransaction(true).build();
         final ShardInfoProvider shardInfoProvider = new ShardInfoProvider("default");
         lookupDao = new LookupDao<>(DBShardingBundleBase.DEFAULT_NAMESPACE,
                 new MultiTenantLookupDao<>(Map.of(DBShardingBundleBase.DEFAULT_NAMESPACE, sessionFactories),

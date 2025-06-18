@@ -21,7 +21,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import io.appform.dropwizard.sharding.ShardInfoProvider;
-import io.appform.dropwizard.sharding.config.ShardingBundleOptions;
+import io.appform.dropwizard.sharding.config.TenantShardingBundleOptions;
 import io.appform.dropwizard.sharding.dao.interceptors.TimerObserver;
 import io.appform.dropwizard.sharding.dao.listeners.LoggingListener;
 import io.appform.dropwizard.sharding.dao.testdata.entities.Audit;
@@ -98,8 +98,8 @@ public class MultiTenantLookupDaoTest {
             buildSessionFactory("tenant2_3"), buildSessionFactory("tenant2_4")));
     sessionFactories.forEach((tenant, sessionFactory) ->
         shardManager.put(tenant, new BalancedShardManager(sessionFactory.size())));
-    final Map<String, ShardingBundleOptions> shardingOptions = Map.of("TENANT1",
-        new ShardingBundleOptions(), "TENANT2", new ShardingBundleOptions());
+    final Map<String, TenantShardingBundleOptions> shardingOptions = Map.of("TENANT1",
+        new TenantShardingBundleOptions(), "TENANT2", new TenantShardingBundleOptions());
 
     final Map<String, ShardInfoProvider> shardInfoProvider = Map.of("TENANT1",
         new ShardInfoProvider("TENANT1"),
