@@ -22,14 +22,14 @@ import java.util.Map;
 public class MultiTenantShardedHibernateFactory {
 
   @Default
-  private Map<String, ShardedHibernateFactory> tenants = Maps.newHashMap();
+  private Map<String, TenantHibernateFactory> tenants = Maps.newHashMap();
 
   /**
    * {@summary Get the ShardedHibernateFactory configuration for the given tenantId.}
    * @param tenantId Tenant Id
    * @return ShardedHibernateFactory
    */
-  public ShardedHibernateFactory config(final String tenantId) {
+  public TenantHibernateFactory config(final String tenantId) {
     return tenants.get(tenantId);
   }
 }

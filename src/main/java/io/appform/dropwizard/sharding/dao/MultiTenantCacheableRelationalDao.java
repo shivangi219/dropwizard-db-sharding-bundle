@@ -19,7 +19,7 @@ package io.appform.dropwizard.sharding.dao;
 
 import io.appform.dropwizard.sharding.ShardInfoProvider;
 import io.appform.dropwizard.sharding.caching.RelationalCache;
-import io.appform.dropwizard.sharding.config.ShardingBundleOptions;
+import io.appform.dropwizard.sharding.config.TenantShardingBundleOptions;
 import io.appform.dropwizard.sharding.observers.TransactionObserver;
 import io.appform.dropwizard.sharding.sharding.ShardManager;
 import org.hibernate.SessionFactory;
@@ -62,7 +62,7 @@ public class MultiTenantCacheableRelationalDao<T> extends MultiTenantRelationalD
       Class<T> entityClass,
       Map<String, ShardManager> shardManagers,
       Map<String, RelationalCache<T>> cache,
-      Map<String, ShardingBundleOptions> shardingOptions,
+      Map<String, TenantShardingBundleOptions> shardingOptions,
       Map<String, ShardInfoProvider> shardInfoProvider,
       TransactionObserver observer) {
     super(sessionFactories, entityClass, shardManagers, shardingOptions, shardInfoProvider, observer);

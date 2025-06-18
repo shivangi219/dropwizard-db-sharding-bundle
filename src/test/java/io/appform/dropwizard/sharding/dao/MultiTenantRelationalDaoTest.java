@@ -20,7 +20,7 @@ package io.appform.dropwizard.sharding.dao;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import io.appform.dropwizard.sharding.ShardInfoProvider;
-import io.appform.dropwizard.sharding.config.ShardingBundleOptions;
+import io.appform.dropwizard.sharding.config.TenantShardingBundleOptions;
 import io.appform.dropwizard.sharding.dao.interceptors.DaoClassLocalObserver;
 import io.appform.dropwizard.sharding.dao.interceptors.EntityClassThreadLocalObserver;
 import io.appform.dropwizard.sharding.dao.interceptors.InterceptorTestUtil;
@@ -97,8 +97,8 @@ public class MultiTenantRelationalDaoTest {
     this.shardManager = Map.of("TENANT1",
         new BalancedShardManager(sessionFactories.get("TENANT1").size()),
         "TENANT2", new BalancedShardManager(sessionFactories.get("TENANT2").size()));
-    final Map<String, ShardingBundleOptions> shardingOptions = Map.of("TENANT1",
-        new ShardingBundleOptions(), "TENANT2", new ShardingBundleOptions());
+    final Map<String, TenantShardingBundleOptions> shardingOptions = Map.of("TENANT1",
+        new TenantShardingBundleOptions(), "TENANT2", new TenantShardingBundleOptions());
     final Map<String, ShardInfoProvider> shardInfoProvider = Map.of("TENANT1",
         new ShardInfoProvider("TENANT1"),
         "TENANT2", new ShardInfoProvider("TENANT2"));

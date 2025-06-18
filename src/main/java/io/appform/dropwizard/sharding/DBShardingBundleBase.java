@@ -23,6 +23,8 @@ import io.appform.dropwizard.sharding.caching.RelationalCache;
 import io.appform.dropwizard.sharding.config.MetricConfig;
 import io.appform.dropwizard.sharding.config.MultiTenantShardedHibernateFactory;
 import io.appform.dropwizard.sharding.config.ShardedHibernateFactory;
+import io.appform.dropwizard.sharding.config.TenantHibernateFactory;
+import io.appform.dropwizard.sharding.config.TenantShardingBundleOptions;
 import io.appform.dropwizard.sharding.dao.AbstractDAO;
 import io.appform.dropwizard.sharding.dao.CacheableLookupDao;
 import io.appform.dropwizard.sharding.dao.CacheableRelationalDao;
@@ -83,9 +85,7 @@ public abstract class DBShardingBundleBase<T extends Configuration> implements C
 
             @Override
             protected MultiTenantShardedHibernateFactory getConfig(T config) {
-                return new MultiTenantShardedHibernateFactory(
-                        Map.of(dbNamespace, DBShardingBundleBase.this.getConfig(config))
-                );
+                return getMultiTenantShardedHibernateFactory(config, dbNamespace);
             }
 
             @Override
@@ -105,9 +105,7 @@ public abstract class DBShardingBundleBase<T extends Configuration> implements C
 
             @Override
             protected MultiTenantShardedHibernateFactory getConfig(T config) {
-                return new MultiTenantShardedHibernateFactory(
-                        Map.of(dbNamespace, DBShardingBundleBase.this.getConfig(config))
-                );
+                return getMultiTenantShardedHibernateFactory(config, dbNamespace);
             }
 
             @Override
@@ -207,5 +205,20 @@ public abstract class DBShardingBundleBase<T extends Configuration> implements C
 
     public void registerFilter(TransactionFilter transactionFilter) {
         delegate.registerFilter(transactionFilter);
+    }
+
+    private MultiTenantShardedHibernateFactory getMultiTenantShardedHibernateFactory(T config, String dbNamespace) {
+        final var shardedHibernateFactory = DBShardingBundleBase.this.getConfig(config);
+        final var shardingBundleOptions = shardedHibernateFactory.getShardingOptions();
+        return new MultiTenantShardedHibernateFactory(
+                Map.of(dbNamespace, TenantHibernateFactory.builder()
+                        .shards(shardedHibernateFactory.getShards())
+                        .shardingOptions(TenantShardingBundleOptions.builder()
+                                .skipReadOnlyTransaction(shardingBundleOptions.isSkipReadOnlyTransaction())
+                                .skipNativeHealthcheck(shardingBundleOptions.isSkipNativeHealthcheck())
+                                .build())
+                        .metricConfig(shardedHibernateFactory.getMetricConfig())
+                        .build())
+        );
     }
 }

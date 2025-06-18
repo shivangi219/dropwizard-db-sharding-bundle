@@ -4,8 +4,8 @@ import com.codahale.metrics.health.HealthCheckRegistry;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.Maps;
 import io.appform.dropwizard.sharding.config.MultiTenantShardedHibernateFactory;
-import io.appform.dropwizard.sharding.config.ShardedHibernateFactory;
-import io.appform.dropwizard.sharding.config.ShardingBundleOptions;
+import io.appform.dropwizard.sharding.config.TenantHibernateFactory;
+import io.appform.dropwizard.sharding.config.TenantShardingBundleOptions;
 import io.dropwizard.Configuration;
 import io.dropwizard.db.DataSourceFactory;
 import io.dropwizard.jersey.DropwizardResourceConfig;
@@ -30,10 +30,10 @@ public abstract class MultiTenantBundleBasedTestBase {
 
     @Getter
     private MultiTenantShardedHibernateFactory shards = new MultiTenantShardedHibernateFactory(Map.of("TENANT1",
-        ShardedHibernateFactory.builder()
-            .shardingOptions(ShardingBundleOptions.builder().build()).build(),
-        "TENANT2", ShardedHibernateFactory.builder()
-            .shardingOptions(ShardingBundleOptions.builder().build()).build()));
+        TenantHibernateFactory.builder()
+            .shardingOptions(TenantShardingBundleOptions.builder().build()).build(),
+        "TENANT2", TenantHibernateFactory.builder()
+            .shardingOptions(TenantShardingBundleOptions.builder().build()).build()));
   }
 
   protected final TestConfig testConfig = new TestConfig();

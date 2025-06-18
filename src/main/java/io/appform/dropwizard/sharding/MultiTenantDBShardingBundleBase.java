@@ -28,7 +28,7 @@ import io.appform.dropwizard.sharding.caching.LookupCache;
 import io.appform.dropwizard.sharding.caching.RelationalCache;
 import io.appform.dropwizard.sharding.config.MetricConfig;
 import io.appform.dropwizard.sharding.config.MultiTenantShardedHibernateFactory;
-import io.appform.dropwizard.sharding.config.ShardingBundleOptions;
+import io.appform.dropwizard.sharding.config.TenantShardingBundleOptions;
 import io.appform.dropwizard.sharding.dao.AbstractDAO;
 import io.appform.dropwizard.sharding.dao.MultiTenantCacheableLookupDao;
 import io.appform.dropwizard.sharding.dao.MultiTenantCacheableRelationalDao;
@@ -72,7 +72,7 @@ public abstract class MultiTenantDBShardingBundleBase<T extends Configuration> e
   private Map<String, ShardManager> shardManagers = Maps.newHashMap();
 
   @Getter
-  private Map<String, ShardingBundleOptions> shardingOptions = Maps.newHashMap();
+  private Map<String, TenantShardingBundleOptions> shardingOptions = Maps.newHashMap();
 
   private Map<String, ShardInfoProvider> shardInfoProviders = Maps.newHashMap();
 
@@ -106,7 +106,7 @@ public abstract class MultiTenantDBShardingBundleBase<T extends Configuration> e
       this.shardInfoProviders.put(tenantId, shardInfoProvider);
       //Encryption Support through jasypt-hibernate5
       var shardingOption = shardConfig.getShardingOptions();
-      shardingOption = Objects.nonNull(shardingOption) ? shardingOption : new ShardingBundleOptions();
+      shardingOption = Objects.nonNull(shardingOption) ? shardingOption : new TenantShardingBundleOptions();
       final var healthCheckManager = new HealthCheckManager(tenantId, environment, shardInfoProvider,
               blacklistingStore, shardingOption);
       healthCheckManagers.put(tenantId, healthCheckManager);

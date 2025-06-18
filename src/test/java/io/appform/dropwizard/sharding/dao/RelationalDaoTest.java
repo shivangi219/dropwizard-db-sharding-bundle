@@ -21,7 +21,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import io.appform.dropwizard.sharding.DBShardingBundleBase;
 import io.appform.dropwizard.sharding.ShardInfoProvider;
-import io.appform.dropwizard.sharding.config.ShardingBundleOptions;
+import io.appform.dropwizard.sharding.config.TenantShardingBundleOptions;
 import io.appform.dropwizard.sharding.dao.interceptors.DaoClassLocalObserver;
 import io.appform.dropwizard.sharding.dao.interceptors.EntityClassThreadLocalObserver;
 import io.appform.dropwizard.sharding.dao.interceptors.InterceptorTestUtil;
@@ -92,7 +92,7 @@ public class RelationalDaoTest {
             sessionFactories.add(buildSessionFactory(String.format("db_%d", i)));
         }
         this.shardManager = new BalancedShardManager(sessionFactories.size());
-        final ShardingBundleOptions shardingOptions = new ShardingBundleOptions();
+        final TenantShardingBundleOptions shardingOptions = new TenantShardingBundleOptions();
         final ShardInfoProvider shardInfoProvider = new ShardInfoProvider("default");
         final TransactionObserver observer = new EntityClassThreadLocalObserver(new DaoClassLocalObserver(new TerminalTransactionObserver()));
         relationalDao = new RelationalDao<>(DBShardingBundleBase.DEFAULT_NAMESPACE,
