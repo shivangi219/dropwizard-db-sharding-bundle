@@ -12,7 +12,7 @@ import java.util.Map;
 /**
  * {@summary Config for a tenanted shards hibernate factory.
  * <ul>
- * <li>tenants : This holds the ShardedHibernateFactory configuration in a map keyed by Tenant Id.</li>
+ * <li>tenants : This holds the TenantShardHibernateFactory configuration in a map keyed by Tenant Id.</li>
  * </ul>}
  */
 @Data
@@ -22,14 +22,14 @@ import java.util.Map;
 public class MultiTenantShardedHibernateFactory {
 
   @Default
-  private Map<String, TenantHibernateFactory> tenants = Maps.newHashMap();
+  private Map<String, TenantShardHibernateFactory> tenants = Maps.newHashMap();
 
   /**
    * {@summary Get the ShardedHibernateFactory configuration for the given tenantId.}
    * @param tenantId Tenant Id
    * @return ShardedHibernateFactory
    */
-  public TenantHibernateFactory config(final String tenantId) {
+  public TenantShardHibernateFactory config(final String tenantId) {
     return tenants.get(tenantId);
   }
 }

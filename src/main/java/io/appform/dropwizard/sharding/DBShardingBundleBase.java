@@ -23,7 +23,8 @@ import io.appform.dropwizard.sharding.caching.RelationalCache;
 import io.appform.dropwizard.sharding.config.MetricConfig;
 import io.appform.dropwizard.sharding.config.MultiTenantShardedHibernateFactory;
 import io.appform.dropwizard.sharding.config.ShardedHibernateFactory;
-import io.appform.dropwizard.sharding.config.TenantHibernateFactory;
+import io.appform.dropwizard.sharding.config.ShardingBundleOptions;
+import io.appform.dropwizard.sharding.config.TenantShardHibernateFactory;
 import io.appform.dropwizard.sharding.config.TenantShardingBundleOptions;
 import io.appform.dropwizard.sharding.dao.AbstractDAO;
 import io.appform.dropwizard.sharding.dao.CacheableLookupDao;
@@ -48,6 +49,7 @@ import org.hibernate.SessionFactory;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.Supplier;
 
 /**
@@ -209,13 +211,18 @@ public abstract class DBShardingBundleBase<T extends Configuration> implements C
 
     private MultiTenantShardedHibernateFactory getMultiTenantShardedHibernateFactory(T config, String dbNamespace) {
         final var shardedHibernateFactory = DBShardingBundleBase.this.getConfig(config);
-        final var shardingBundleOptions = shardedHibernateFactory.getShardingOptions();
+        var shardingOption = shardedHibernateFactory.getShardingOptions();
+        shardingOption = Objects.nonNull(shardingOption) ? shardingOption : new ShardingBundleOptions();
         return new MultiTenantShardedHibernateFactory(
-                Map.of(dbNamespace, TenantHibernateFactory.builder()
+                Map.of(dbNamespace, TenantShardHibernateFactory.builder()
                         .shards(shardedHibernateFactory.getShards())
                         .shardingOptions(TenantShardingBundleOptions.builder()
-                                .skipReadOnlyTransaction(shardingBundleOptions.isSkipReadOnlyTransaction())
-                                .skipNativeHealthcheck(shardingBundleOptions.isSkipNativeHealthcheck())
+                                .skipReadOnlyTransaction(shardingOption.isSkipReadOnlyTransaction())
+                                .skipNativeHealthcheck(shardingOption.isSkipNativeHealthcheck())
+                                .encryptionSupportEnabled(shardingOption.isEncryptionSupportEnabled())
+                                .encryptionAlgorithm(shardingOption.getEncryptionAlgorithm())
+                                .encryptionPassword(shardingOption.getEncryptionPassword())
+                                .encryptionIv(shardingOption.getEncryptionIv())
                                 .build())
                         .metricConfig(shardedHibernateFactory.getMetricConfig())
                         .build())

@@ -33,8 +33,7 @@ import java.util.List;
 /**
  * {@summary Config for shards hibernate factory.
  * <ul>
- * <li>shards : This holds shards information, number of shards is set to 2 by default. This can be changed by passing -Ddb.shards=[n] on the command line.</li>
- * <li>blacklist : This is used to blacklist certain shard while booting up bundle.</li>
+ * <li>shards : This holds shards information.</li>
  * <li>shardingOptions : This can be used to set certain settings in db-bundle like skipTransactionOnRead etc.</li>
  * </ul>}
  */
@@ -42,7 +41,7 @@ import java.util.List;
 @AllArgsConstructor
 @NoArgsConstructor
 @Builder
-public class TenantHibernateFactory {
+public class TenantShardHibernateFactory {
     @NotNull
     @NotEmpty
     @Valid

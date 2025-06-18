@@ -4,7 +4,7 @@ import com.codahale.metrics.health.HealthCheckRegistry;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.Maps;
 import io.appform.dropwizard.sharding.config.MultiTenantShardedHibernateFactory;
-import io.appform.dropwizard.sharding.config.TenantHibernateFactory;
+import io.appform.dropwizard.sharding.config.TenantShardHibernateFactory;
 import io.appform.dropwizard.sharding.config.TenantShardingBundleOptions;
 import io.dropwizard.Configuration;
 import io.dropwizard.db.DataSourceFactory;
@@ -30,9 +30,9 @@ public abstract class MultiTenantBundleBasedTestBase {
 
     @Getter
     private MultiTenantShardedHibernateFactory shards = new MultiTenantShardedHibernateFactory(Map.of("TENANT1",
-        TenantHibernateFactory.builder()
+        TenantShardHibernateFactory.builder()
             .shardingOptions(TenantShardingBundleOptions.builder().build()).build(),
-        "TENANT2", TenantHibernateFactory.builder()
+        "TENANT2", TenantShardHibernateFactory.builder()
             .shardingOptions(TenantShardingBundleOptions.builder().build()).build()));
   }
 
