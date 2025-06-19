@@ -12,7 +12,8 @@ import lombok.NoArgsConstructor;
 public class ShardingBundleOptions {
     private boolean skipReadOnlyTransaction = false;
 
-    private boolean skipNativeHealthcheck = false;
+    @Builder.Default
+    private boolean skipNativeHealthcheck = true;
 
     @Builder.Default
     private boolean encryptionSupportEnabled = false;
