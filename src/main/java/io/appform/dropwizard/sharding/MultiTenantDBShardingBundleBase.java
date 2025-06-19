@@ -273,6 +273,7 @@ public abstract class MultiTenantDBShardingBundleBase<T extends Configuration> e
 
   private List<SessionFactorySource> getSessionFactorySources(final String tenantId,
                                                               final List<CompletableFuture<SessionFactorySource>> futures) {
+    final int TIMEOUT_SECONDS = 180;
     List<SessionFactorySource> sessionFactorySources;
     try {
       sessionFactorySources = CompletableFuture
@@ -282,7 +283,7 @@ public abstract class MultiTenantDBShardingBundleBase<T extends Configuration> e
                               .map(CompletableFuture::join)
                               .collect(Collectors.toList())
               )
-              .get(180, TimeUnit.SECONDS);
+              .get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
     } catch (InterruptedException e) {
       Thread.currentThread().interrupt();
       throw new RuntimeException("Initialization interrupted for tenant " + tenantId, e);
@@ -290,7 +291,7 @@ public abstract class MultiTenantDBShardingBundleBase<T extends Configuration> e
       throw new RuntimeException("One or more session factories failed for tenant " + tenantId, e.getCause());
     } catch (TimeoutException e) {
       futures.forEach(f -> f.cancel(true));
-      throw new RuntimeException("Timed out waiting " + 180 + "s for tenant " + tenantId, e);
+      throw new RuntimeException("Timed out waiting " + TIMEOUT_SECONDS + "s for tenant " + tenantId, e);
     }
     return sessionFactorySources;
   }
