@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [2.1.10-9] - 2025-06-19
+## [2.1.10-9]
 
 ### Added
 - Replaced `dropwizard-hibernate` with direct use of `hibernate-core`.
@@ -22,4 +22,5 @@ All notable changes to this project will be documented in this file.
 - To enable the blacklisting feature:
   - Provide a concrete implementation of `ShardBlacklistingStore` during bundle initialization.
   - By default, a `NoopShardBlacklistingStore` is used.
-- If blacklisting is enabled, native health checks will be skipped automatically.
+- If blacklisting is enabled, native health checks will be skipped automatically, regardless of the `skipNativeHealthCheck` option.
+- Important: Skipping health checks means the application will report as healthy even if one or all database shards are down.
