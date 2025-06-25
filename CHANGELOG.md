@@ -6,6 +6,7 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 - Replaced `dropwizard-hibernate` with direct use of `hibernate-core`.
+
   **Reason**: `dropwizard-hibernate` is a Dropwizard bundle.
   - With `-Db.shards` deprecated in favor of multi-tenancy, shard configuration is only available during `run()`. This meant Hibernate bundles couldn't be initialized in `initialize()`, violating Dropwizard lifecycle expectations. 
   - Session factories couldn’t be initialized in parallel, as bundles must be added to the Dropwizard environment, which isn't thread-safe (`List<LifeCycle>` is not concurrent).
