@@ -9,7 +9,7 @@ All notable changes to this project will be documented in this file.
 
   **Reason**: `dropwizard-hibernate` is a Dropwizard bundle.
   - With `-Db.shards` deprecated in favor of multi-tenancy, shard configuration is only available during `run()`. This meant Hibernate bundles couldn't be initialized in `initialize()`, violating Dropwizard lifecycle expectations. 
-  - Parallel initialization of SessionFactory instances was previously not feasible, as Dropwizard requires all bundles to be registered sequentially as Environment is not thread-safe.
+  - Parallel initialization of SessionFactory instances was previously not feasible, as Dropwizard requires all bundles to be registered sequentially, and the Environment's managedObjects is not thread-safe.
   
 - Added support for parallel `SessionFactory` initialization per tenant.
 - Introduced `BucketObserver` support:
