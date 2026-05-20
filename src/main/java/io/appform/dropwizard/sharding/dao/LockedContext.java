@@ -566,11 +566,12 @@ public class LockedContext<T> {
             try {
                 val opContext = (LockAndExecute<T>) executionContext.getOpContext();
                 T result = opContext.apply(transactionHandler.getSession());
-                transactionHandler.afterEnd();
                 return result;
             } catch (Exception e) {
                 transactionHandler.onError();
                 throw e;
+            } finally {
+                transactionHandler.afterEnd();
             }
         });
     }
