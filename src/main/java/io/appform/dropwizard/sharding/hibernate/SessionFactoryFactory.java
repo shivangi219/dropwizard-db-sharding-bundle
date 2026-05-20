@@ -48,7 +48,9 @@ public abstract class SessionFactoryFactory<T> implements DatabaseConfiguration<
 
     public SessionFactorySource build(T configuration, Environment environment) throws Exception {
         final PooledDataSourceFactory dbConfig = getDataSourceFactory(configuration);
-        dbConfig.getProperties().put("defaultAutoCommit", "false");
+        if (dbConfig instanceof io.dropwizard.db.DataSourceFactory) {
+            ((io.dropwizard.db.DataSourceFactory) dbConfig).setAutoCommitByDefault(false);
+        }
         final ManagedDataSource dataSource = dbConfig.build(environment.metrics(), name());
         final ConnectionProvider provider = buildConnectionProvider(dataSource, dbConfig.getProperties());
         this.sessionFactory = buildSessionFactory(
@@ -95,7 +97,7 @@ public abstract class SessionFactoryFactory<T> implements DatabaseConfiguration<
         for (Map.Entry<String, String> property : properties.entrySet()) {
             configuration.setProperty(property.getKey(), property.getValue());
         }
-        // Must be set after user properties to prevent override — pair with defaultAutoCommit=false on the pool
+        // Must be set after user properties to prevent override — paired with setAutoCommitByDefault(false) on the pool
         configuration.setProperty(AvailableSettings.CONNECTION_PROVIDER_DISABLES_AUTOCOMMIT, "true");
         addAnnotatedClasses(configuration, entities);
         final ServiceRegistry registry = new StandardServiceRegistryBuilder(bootstrapServiceRegistry)
