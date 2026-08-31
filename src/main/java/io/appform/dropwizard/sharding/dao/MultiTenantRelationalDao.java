@@ -266,29 +266,6 @@ public class MultiTenantRelationalDao<T> implements ShardedDao<T> {
         }
     }
 
-    /**
-     * Resolves the list of per-shard {@code RelationalDaoPriv} wrappers for a tenant, building it
-     * lazily on first use and caching it thereafter.
-     * <p>
-     * This is intentionally lazy rather than an eager snapshot taken at construction time: if this
-     * DAO is constructed (e.g. by a DI container) before the bundle's {@code run()} has populated
-     * {@code sessionFactories}, an eager snapshot would silently and permanently cache "no tenants",
-     * causing every operation to fail later with a misleading "Unknown tenant" error. By resolving
-     * lazily against the retained {@code sessionFactories} reference, this tolerates construction
-     * happening before {@code sessionFactories} is populated, as long as it is populated by the time
-     * an operation is actually invoked.
-     *
-     * @throws IllegalArgumentException if the tenant is not (yet) present in {@code sessionFactories}
-     */
-    private List<RelationalDaoPriv> daosForTenant(final String tenantId) {
-        return daos.computeIfAbsent(tenantId, t -> {
-            final List<SessionFactory> factories = sessionFactories.get(t);
-            Preconditions.checkArgument(factories != null, "Unknown tenant: " + t);
-            return factories.stream().map(RelationalDaoPriv::new).collect(Collectors.toList());
-        });
-    }
-
-
     // Not a snapshot: sessionFactories is retained and daos entries are resolved lazily,
     // on first use per tenant, via daosForTenant(). This mirrors how ShardCalculator reads
     // shardManagers lazily, so that DAO construction order relative to bundle.run() (e.g. when
@@ -353,23 +330,6 @@ public class MultiTenantRelationalDao<T> implements ShardedDao<T> {
                 throw new IllegalArgumentException("Invalid class, DAO cannot be created.", e);
             }
         }
-    }
-
-    /**
-     * Resolves the {@code TransactionExecutor} for a tenant, building it lazily on first use and
-     * caching it thereafter. See {@code daosForTenant} for the rationale behind lazy resolution -
-     * {@code shardInfoProviders} may still be empty at construction time if this DAO is
-     * constructed by a DI container before the bundle's {@code run()} has populated it.
-     *
-     * @throws IllegalArgumentException if the tenant is not (yet) present in
-     *                                  {@code shardInfoProviders}
-     */
-    private TransactionExecutor transactionExecutorForTenant(final String tenantId) {
-        return transactionExecutor.computeIfAbsent(tenantId, t -> {
-            final ShardInfoProvider shardInfoProvider = shardInfoProviders.get(t);
-            Preconditions.checkArgument(shardInfoProvider != null, "Unknown tenant: " + t);
-            return new TransactionExecutor(shardInfoProvider, DaoType.RELATIONAL, entityClass, observer);
-        });
     }
 
     /**
@@ -1984,5 +1944,46 @@ public class MultiTenantRelationalDao<T> implements ShardedDao<T> {
                 throw new RuntimeException("Error while reading association parent value", e);
             }
         }
+
     }
+
+    /**
+     * Resolves the list of per-shard {@code RelationalDaoPriv} wrappers for a tenant, building it
+     * lazily on first use and caching it thereafter.
+     * <p>
+     * This is intentionally lazy rather than an eager snapshot taken at construction time: if this
+     * DAO is constructed (e.g. by a DI container) before the bundle's {@code run()} has populated
+     * {@code sessionFactories}, an eager snapshot would silently and permanently cache "no tenants",
+     * causing every operation to fail later with a misleading "Unknown tenant" error. By resolving
+     * lazily against the retained {@code sessionFactories} reference, this tolerates construction
+     * happening before {@code sessionFactories} is populated, as long as it is populated by the time
+     * an operation is actually invoked.
+     *
+     * @throws IllegalArgumentException if the tenant is not (yet) present in {@code sessionFactories}
+     */
+    private List<RelationalDaoPriv> daosForTenant(final String tenantId) {
+        return daos.computeIfAbsent(tenantId, t -> {
+            final List<SessionFactory> factories = sessionFactories.get(t);
+            Preconditions.checkArgument(factories != null, "Unknown tenant: " + t);
+            return factories.stream().map(RelationalDaoPriv::new).collect(Collectors.toList());
+        });
+    }
+
+    /**
+     * Resolves the {@code TransactionExecutor} for a tenant, building it lazily on first use and
+     * caching it thereafter. See {@code daosForTenant} for the rationale behind lazy resolution -
+     * {@code shardInfoProviders} may still be empty at construction time if this DAO is
+     * constructed by a DI container before the bundle's {@code run()} has populated it.
+     *
+     * @throws IllegalArgumentException if the tenant is not (yet) present in
+     *                                  {@code shardInfoProviders}
+     */
+    private TransactionExecutor transactionExecutorForTenant(final String tenantId) {
+        return transactionExecutor.computeIfAbsent(tenantId, t -> {
+            final ShardInfoProvider shardInfoProvider = shardInfoProviders.get(t);
+            Preconditions.checkArgument(shardInfoProvider != null, "Unknown tenant: " + t);
+            return new TransactionExecutor(shardInfoProvider, DaoType.RELATIONAL, entityClass, observer);
+        });
+    }
+
 }

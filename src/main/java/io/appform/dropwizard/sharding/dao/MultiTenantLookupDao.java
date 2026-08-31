@@ -104,7 +104,7 @@ public class MultiTenantLookupDao<T> implements ShardedDao<T> {
 
     private final Map<String, List<SessionFactory>> sessionFactories;
     // Not a snapshot: entries are resolved lazily, on first use per tenant, via
-    // daosForTenant(). See MultiTenantRelationalDao#daosForTenant for rationale.
+    // daosForTenant().
     private final Map<String, List<LookupDaoPriv>> daos = new ConcurrentHashMap<>();
     private final Class<T> entityClass;
     @Getter
@@ -113,7 +113,7 @@ public class MultiTenantLookupDao<T> implements ShardedDao<T> {
     private final Map<String, ShardingBundleOptions> shardingOptions;
     private final Field keyField;
     // Not a snapshot: shardInfoProviders is retained and entries are resolved lazily, on first
-    // use per tenant, via transactionExecutorForTenant(). See daosForTenant() for rationale.
+    // use per tenant, via transactionExecutorForTenant().
     private final Map<String, TransactionExecutor> transactionExecutor = new ConcurrentHashMap<>();
     private final Map<String, ShardInfoProvider> shardInfoProviders;
     private final TransactionObserver observer;
@@ -167,38 +167,6 @@ public class MultiTenantLookupDao<T> implements ShardedDao<T> {
         }
         Preconditions.checkArgument(ClassUtils.isAssignable(keyField.getType(), String.class),
                 "Key field must be a string");
-    }
-
-    /**
-     * Resolves the {@code TransactionExecutor} for a tenant, building it lazily on first use and
-     * caching it thereafter. See {@code daosForTenant} for the rationale behind lazy resolution -
-     * {@code shardInfoProviders} may still be empty at construction time if this DAO is
-     * constructed by a DI container before the bundle's {@code run()} has populated it.
-     *
-     * @throws IllegalArgumentException if the tenant is not (yet) present in
-     *                                  {@code shardInfoProviders}
-     */
-    private TransactionExecutor transactionExecutorForTenant(final String tenantId) {
-        return transactionExecutor.computeIfAbsent(tenantId, t -> {
-            final ShardInfoProvider shardInfoProvider = shardInfoProviders.get(t);
-            Preconditions.checkArgument(shardInfoProvider != null, "Unknown tenant: " + t);
-            return new TransactionExecutor(shardInfoProvider, DaoType.LOOKUP, entityClass, observer);
-        });
-    }
-
-    /**
-     * Resolves the list of per-shard {@code LookupDaoPriv} wrappers for a tenant, building it
-     * lazily on first use and caching it thereafter. See
-     * {@code MultiTenantRelationalDao#daosForTenant} for the rationale behind lazy resolution.
-     *
-     * @throws IllegalArgumentException if the tenant is not (yet) present in {@code sessionFactories}
-     */
-    private List<LookupDaoPriv> daosForTenant(final String tenantId) {
-        return daos.computeIfAbsent(tenantId, t -> {
-            final List<SessionFactory> factories = sessionFactories.get(t);
-            Preconditions.checkArgument(factories != null, "Unknown tenant: " + t);
-            return factories.stream().map(LookupDaoPriv::new).collect(Collectors.toList());
-        });
     }
 
     /**
@@ -1046,6 +1014,38 @@ public class MultiTenantLookupDao<T> implements ShardedDao<T> {
     }
 
     /**
+     * Resolves the {@code TransactionExecutor} for a tenant, building it lazily on first use and
+     * caching it thereafter. See {@code daosForTenant} for the rationale behind lazy resolution -
+     * {@code shardInfoProviders} may still be empty at construction time if this DAO is
+     * constructed by a DI container before the bundle's {@code run()} has populated it.
+     *
+     * @throws IllegalArgumentException if the tenant is not (yet) present in
+     *                                  {@code shardInfoProviders}
+     */
+    private TransactionExecutor transactionExecutorForTenant(final String tenantId) {
+        return transactionExecutor.computeIfAbsent(tenantId, t -> {
+            final ShardInfoProvider shardInfoProvider = shardInfoProviders.get(t);
+            Preconditions.checkArgument(shardInfoProvider != null, "Unknown tenant: " + t);
+            return new TransactionExecutor(shardInfoProvider, DaoType.LOOKUP, entityClass, observer);
+        });
+    }
+
+    /**
+     * Resolves the list of per-shard {@code LookupDaoPriv} wrappers for a tenant, building it
+     * lazily on first use and caching it thereafter. See
+     * {@code MultiTenantRelationalDao#daosForTenant} for the rationale behind lazy resolution.
+     *
+     * @throws IllegalArgumentException if the tenant is not (yet) present in {@code sessionFactories}
+     */
+    private List<LookupDaoPriv> daosForTenant(final String tenantId) {
+        return daos.computeIfAbsent(tenantId, t -> {
+            final List<SessionFactory> factories = sessionFactories.get(t);
+            Preconditions.checkArgument(factories != null, "Unknown tenant: " + t);
+            return factories.stream().map(LookupDaoPriv::new).collect(Collectors.toList());
+        });
+    }
+
+    /**
      * The {@code ReadOnlyContext} class represents a context for executing read-only operations
      * within a specific shard of a distributed database. It provides a mechanism to define and
      * execute read operations on data stored in the shard while handling transaction management,
@@ -1502,6 +1502,7 @@ public class MultiTenantLookupDao<T> implements ShardedDao<T> {
                 }
             });
         }
+
     }
 
     /**
